@@ -3,7 +3,7 @@ import Counter from "~/components/Counter";
 
 export default function Home() {
   return (
-    <main>
+    <main class="b bg-black">
       <Title>Hello World</Title>
       <h1>Hello world!</h1>
       <Counter />
