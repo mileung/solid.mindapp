@@ -1,5 +1,3 @@
-import { atom, useAtom } from 'jotai';
-import { useCallback } from 'react';
 import { Persona, passwords } from '../types/PersonasPolyfill';
 import { Thought } from './ClientThought';
 import { hostedLocally, makeUrl, ping, post, testingExternalClientLocally } from './api';
@@ -10,12 +8,14 @@ import Ajv from 'ajv';
 import { validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { SignedAuthor, UnsignedAuthor } from '../types/Author';
+import { createSignal } from 'solid-js';
+import { createStore } from 'solid-js/store';
 
 export const defaultSpaceHost = hostedLocally
 	? ''
 	: testingExternalClientLocally
-		? 'localhost:8080'
-		: 'api.mindapp.cc';
+	? 'localhost:8080'
+	: 'api.mindapp.cc';
 
 export type LocalState = {
 	theme: 'System' | 'Light' | 'Dark';
@@ -47,17 +47,18 @@ if (!ajv.validate(schema, defaultLocalState)) {
 }
 
 export const getLocalState = () => {
-	const storedLocalState = localStorage.getItem('LocalState');
-	const localState: LocalState = storedLocalState ? JSON.parse(storedLocalState) : {};
-	// console.log('localState:', localState);
+	return defaultLocalState;
+	// const storedLocalState = localStorage.getItem('LocalState');
+	// const localState: LocalState = storedLocalState ? JSON.parse(storedLocalState) : {};
+	// // console.log('localState:', localState);
 
-	const validLocalState = ajv.validate(schema, localState);
-	// console.log('validLocalState:', validLocalState);
-	// console.log(new Error().stack);
-	if (!validLocalState) {
-		localStorage.setItem('LocalState', JSON.stringify(defaultLocalState));
-	}
-	return validLocalState ? localState : defaultLocalState;
+	// const validLocalState = ajv.validate(schema, localState);
+	// // console.log('validLocalState:', validLocalState);
+	// // console.log(new Error().stack);
+	// if (!validLocalState) {
+	// 	localStorage.setItem('LocalState', JSON.stringify(defaultLocalState));
+	// }
+	// return validLocalState ? localState : defaultLocalState;
 };
 
 export const updateLocalState = (stateUpdate: Partial<LocalState>) => {
@@ -67,13 +68,8 @@ export const updateLocalState = (stateUpdate: Partial<LocalState>) => {
 	return mergedState;
 };
 
-export const createAtom = <T>(initialValue: T) => {
-	const atomInstance = atom<T>(initialValue);
-	return () => useAtom(atomInstance);
-};
-
 const currentLocalState = getLocalState();
-export const usePersonas = createAtom<Persona[]>(
+export const [personas, personasSet] = createStore<Persona[]>(
 	(() => {
 		let arr = currentLocalState.personas;
 		if (hostedLocally) return arr;
@@ -97,64 +93,61 @@ export const usePersonas = createAtom<Persona[]>(
 		return arr;
 	})(),
 );
-export const useTagMapOpen = createAtom<boolean>(false);
-export const useFetchedSpaces = createAtom<Record<string, Space>>(currentLocalState.fetchedSpaces);
-export const useSavedFileThoughtIds = createAtom<Record<string, boolean>>({});
-export const useAuthors = createAtom<Record<string, SignedAuthor>>({});
-export const useMentionedThoughts = createAtom<Record<string, Thought>>({});
-export const useRootSettings = createAtom<null | RootSettings>(null);
-export const useWorkingDirectory = createAtom<undefined | null | WorkingDirectory>(undefined);
-export const useLastUsedTags = createAtom<string[]>([]);
-export const useLocalState = createAtom<LocalState>(currentLocalState);
-export const useTagTree = createAtom<null | TagTree>(null);
+export const [tagMapOpen, tagMapOpenSet] = createSignal<boolean>(false);
+export const [fetchedSpaces, fetchedSpacesSet] = createSignal<Record<string, Space>>(
+	currentLocalState.fetchedSpaces,
+);
+export const [savedFileThoughtIds, savedFileThoughtIdsSet] = createSignal<Record<string, boolean>>(
+	{},
+);
+export const [authors, authorsSet] = createSignal<Record<string, SignedAuthor>>({});
+export const [mentionedThoughts, mentionedThoughtsSet] = createSignal<Record<string, Thought>>({});
+export const [rootSettings, rootSettingsSet] = createSignal<null | RootSettings>(null);
+export const [workingDirectory, workingDirectorySet] = createSignal<
+	undefined | null | WorkingDirectory
+>(undefined);
+export const [lastUsedTags, lastUsedTagsSet] = createStore<string[]>([]);
+export const [localState, localStateSet] = createSignal<LocalState>(currentLocalState);
+export const [tagTree, tagTreeSet] = createStore<TagTree>({
+	parents: {},
+	loners: [],
+});
 // TODO: For users hosting mindapp locally, indicate wherever tags are displayed which ones overlap with the local and space tag tree, tags that are specific  to the space, and tags that specific to what's local
-// export const useLocalTagTree = createAtom<null | TagTree>(null);
+// export const [localTagTree,localTagTreeSet] = createSignal<null | TagTree>(null);
 
 type Item = string | Record<string, any> | any[];
-export function useGetSignature() {
-	const [personas] = usePersonas();
-	return useCallback(
-		async (item: Item, personaId?: string) => {
-			if (!personaId) return;
-			if (hostedLocally) {
-				const { signature } = await ping<{ signature?: string }>(
-					makeUrl('get-signature'),
-					post({ item, personaId }),
-				);
-				return signature;
-			} else {
-				// console.log(item, personaId);
-				// console.log(new Error().stack);
-				const persona = personas.find((p) => p.id === personaId);
-				if (!persona) throw new Error('Persona not found');
-				if (persona.locked) throw new Error('Persona locked');
-				const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
-				if (!validateMnemonic(decryptedMnemonic, wordlist)) {
-					throw new Error('Something went wrong');
-				}
-				const { publicKey, privateKey } = createKeyPair(decryptedMnemonic);
-				if (publicKey !== personaId) {
-					throw new Error('Mnemonic on file does not correspond to personaId');
-				}
-				return signItem(item, privateKey);
-			}
-		},
-		[personas],
-	);
+export async function getSignature(item: Item, personaId?: string) {
+	if (!personaId) return;
+	if (hostedLocally) {
+		const { signature } = await ping<{ signature?: string }>(
+			makeUrl('get-signature'),
+			post({ item, personaId }),
+		);
+		return signature;
+	} else {
+		// console.log(item, personaId);
+		// console.log(new Error().stack);
+		const persona = personas.find((p) => p.id === personaId);
+		if (!persona) throw new Error('Persona not found');
+		if (persona.locked) throw new Error('Persona locked');
+		const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
+		if (!validateMnemonic(decryptedMnemonic, wordlist)) {
+			throw new Error('Something went wrong');
+		}
+		const { publicKey, privateKey } = createKeyPair(decryptedMnemonic);
+		if (publicKey !== personaId) {
+			throw new Error('Mnemonic on file does not correspond to personaId');
+		}
+		return signItem(item, privateKey);
+	}
 }
 
-export function useGetSignedAuthor() {
-	const getSignature = useGetSignature();
-	return useCallback(
-		async (unsignedAuthor: UnsignedAuthor) => {
-			const signedAuthor: SignedAuthor = {
-				...unsignedAuthor,
-				signature: (await getSignature(unsignedAuthor, unsignedAuthor.id))!,
-			};
-			return signedAuthor;
-		},
-		[getSignature],
-	);
+export async function useGetSignedAuthor(unsignedAuthor: UnsignedAuthor) {
+	const signedAuthor: SignedAuthor = {
+		...unsignedAuthor,
+		signature: (await getSignature(unsignedAuthor, unsignedAuthor.id))!,
+	};
+	return signedAuthor;
 }
 
 type Message = {
@@ -162,40 +155,26 @@ type Message = {
 	to: string;
 	from?: string;
 };
-export function useSendMessage() {
-	const getSignature = useGetSignature();
-	return useCallback(
-		async <T>(message: Message) => {
-			return await ping<T>(
-				message.to,
-				post({ message, fromSignature: await getSignature(message, message.from) }),
-			);
-		},
-		[getSignature],
+export async function sendMessage<T>(message: Message) {
+	return await ping<T>(
+		message.to,
+		post({ message, fromSignature: await getSignature(message, message.from) }),
 	);
 }
 
-export function useActiveSpace() {
-	const [personas] = usePersonas();
-	const [spaces] = useFetchedSpaces();
-	return spaces[personas[0].spaceHosts[0]] || { host: personas[0].spaceHosts[0] };
-}
+export const activeSpace = fetchedSpaces()[personas[0].spaceHosts[0]] || {
+	host: personas[0].spaceHosts[0],
+};
 
-export function useGetMnemonic() {
-	const [personas] = usePersonas();
-	return useCallback(
-		(personaId: string) => {
-			if (!personaId) return '';
-			if (hostedLocally) throw new Error('Cannot call this');
-			const persona = personas.find((p) => p.id === personaId);
-			if (!persona) throw new Error('Persona not found');
-			if (persona.locked) throw new Error('Persona locked');
-			const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
-			if (!validateMnemonic(decryptedMnemonic, wordlist)) {
-				throw new Error('Something went wrong');
-			}
-			return decryptedMnemonic;
-		},
-		[personas],
-	);
+export function getMnemonic(personaId: string) {
+	if (!personaId) return '';
+	if (hostedLocally) throw new Error('Cannot call this');
+	const persona = personas.find((p) => p.id === personaId);
+	if (!persona) throw new Error('Persona not found');
+	if (persona.locked) throw new Error('Persona locked');
+	const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
+	if (!validateMnemonic(decryptedMnemonic, wordlist)) {
+		throw new Error('Something went wrong');
+	}
+	return decryptedMnemonic;
 }
