@@ -1,7 +1,6 @@
 import { createSignal } from "solid-js";
-import "./Counter.css";
 
-export default function Counter() {
+export default function Header() {
   const [count, setCount] = createSignal(0);
   return (
     <button
