@@ -8,8 +8,9 @@ import Ajv from 'ajv';
 import { validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { SignedAuthor, UnsignedAuthor } from '../types/Author';
-import { createSignal } from 'solid-js';
+import { createEffect, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
+import { isServer } from 'solid-js/web';
 
 export const defaultSpaceHost = hostedLocally
 	? ''
@@ -47,56 +48,32 @@ if (!ajv.validate(schema, defaultLocalState)) {
 }
 
 export const getLocalState = () => {
-	return defaultLocalState;
-	// const storedLocalState = localStorage.getItem('LocalState');
-	// const localState: LocalState = storedLocalState ? JSON.parse(storedLocalState) : {};
-	// // console.log('localState:', localState);
+	if (isServer) return defaultLocalState;
+	const storedLocalState = localStorage.getItem('LocalState');
+	const localState: LocalState = storedLocalState ? JSON.parse(storedLocalState) : {};
+	// console.log('localState:', localState);
 
-	// const validLocalState = ajv.validate(schema, localState);
-	// // console.log('validLocalState:', validLocalState);
-	// // console.log(new Error().stack);
-	// if (!validLocalState) {
-	// 	localStorage.setItem('LocalState', JSON.stringify(defaultLocalState));
-	// }
-	// return validLocalState ? localState : defaultLocalState;
+	const validLocalState = ajv.validate(schema, localState);
+	// console.log('validLocalState:', validLocalState);
+	// console.log(new Error().stack);
+	if (!validLocalState) {
+		localStorage.setItem('LocalState', JSON.stringify(defaultLocalState));
+	}
+	return validLocalState ? localState : defaultLocalState;
 };
 
 export const updateLocalState = (stateUpdate: Partial<LocalState>) => {
+	if (isServer) return;
 	const currentLocalState = getLocalState();
 	const mergedState = { ...currentLocalState, ...stateUpdate };
 	localStorage.setItem('LocalState', JSON.stringify(mergedState));
 	return mergedState;
 };
 
-const currentLocalState = getLocalState();
-export const [personas, personasSet] = createStore<Persona[]>(
-	(() => {
-		let arr = currentLocalState.personas;
-		if (hostedLocally) return arr;
+export const [personas, personasSet] = createStore<Persona[]>(defaultLocalState.personas);
 
-		arr.forEach((p) => {
-			if (p.id && p.encryptedMnemonic) {
-				const decryptedMnemonic = decrypt(p.encryptedMnemonic, '');
-				if (!validateMnemonic(decryptedMnemonic, wordlist)) return;
-				passwords[p.id] = '';
-			}
-		});
-		arr = arr.map((p) => ({ ...p, locked: passwords[p.id] === undefined }));
-		if (arr[0].locked) {
-			arr.unshift(
-				arr.splice(
-					arr.findIndex((p) => !p.id),
-					1,
-				)[0],
-			);
-		}
-		return arr;
-	})(),
-);
 export const [tagMapOpen, tagMapOpenSet] = createSignal<boolean>(false);
-export const [fetchedSpaces, fetchedSpacesSet] = createSignal<Record<string, Space>>(
-	currentLocalState.fetchedSpaces,
-);
+export const [fetchedSpaces, fetchedSpacesSet] = createSignal<Record<string, Space>>({});
 export const [savedFileThoughtIds, savedFileThoughtIdsSet] = createSignal<Record<string, boolean>>(
 	{},
 );
@@ -107,7 +84,7 @@ export const [workingDirectory, workingDirectorySet] = createSignal<
 	undefined | null | WorkingDirectory
 >(undefined);
 export const [lastUsedTags, lastUsedTagsSet] = createStore<string[]>([]);
-export const [localState, localStateSet] = createSignal<LocalState>(currentLocalState);
+export const [localState, localStateSet] = createSignal<LocalState>();
 export const [tagTree, tagTreeSet] = createStore<TagTree>({
 	parents: {},
 	loners: [],

@@ -1,4 +1,4 @@
-import { useLocation, useNavigate, useSearchParams } from '@solidjs/router';
+import { A, useLocation, useNavigate, useSearchParams } from '@solidjs/router';
 import { Icon } from 'solid-heroicons';
 import {
 	check,
@@ -18,8 +18,11 @@ import { Space } from '../utils/settings';
 import {
 	activeSpace,
 	fetchedSpaces,
+	fetchedSpacesSet,
+	getLocalState,
 	lastUsedTags,
 	lastUsedTagsSet,
+	localStateSet,
 	personas,
 	personasSet,
 	rootSettings,
@@ -29,9 +32,11 @@ import {
 } from '../utils/state';
 import { bracketRegex, getNodes, getNodesArr, getTags } from '../utils/tags';
 import DeterministicVisualId from './DeterministicVisualId';
-import logo from '/mindapp-logo.svg';
-import { Persona } from '../types/PersonasPolyfill';
-import { createEffect, createMemo, createSignal } from 'solid-js';
+import { passwords, Persona } from '../types/PersonasPolyfill';
+import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
+import { decrypt } from '~/utils/security';
+import { validateMnemonic } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english';
 
 const setGlobalCssVariable = (variableName: string, value: string) => {
 	document.documentElement.style.setProperty(`--${variableName}`, value);
@@ -158,7 +163,7 @@ export default function Header() {
 				>
 					<a href="/" class="fx shrink-0">
 						<img
-							src={logo}
+							src={'/mindapp-logo.svg'}
 							alt="logo"
 							class={`h-7 ${hostedLocally && rootSettings()?.testWorkingDirectory && 'grayscale'}`}
 						/>
