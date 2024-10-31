@@ -16,6 +16,7 @@ export default createHandler(() => (
 							{/* localStorage.theme  */}
 							document.documentElement.classList.add('dark');
 						</script>
+						<script>window.global = window;</script>
 					</head>
 					<body>
 						<div id="app" class="">

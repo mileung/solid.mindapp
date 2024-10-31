@@ -1,4 +1,4 @@
-import { useRef, InputHTMLAttributes, forwardRef, createEffect } from 'solid-js';
+import { createEffect, JSX } from 'solid-js';
 
 const maxWidth = 500;
 const resize = (node: HTMLInputElement) => {
@@ -6,12 +6,13 @@ const resize = (node: HTMLInputElement) => {
 	node.style.width = Math.min(maxWidth, node.scrollWidth) + 'px';
 };
 
-const InputAutoWidth = forwardRef((props: InputHTMLAttributes<HTMLInputElement>, parentRef) => {
-	const internalRef = useRef<null | HTMLInputElement>(null);
+const InputAutoWidth = (props: JSX.InputHTMLAttributes<HTMLInputElement> & { parentRef?: any }) => {
+	let { parentRef } = props;
+	let internalRef: undefined | HTMLInputElement;
 
 	createEffect(() => {
 		setTimeout(() => internalRef && resize(internalRef), 0);
-	}, [props.value, props.defaultValue]);
+	});
 
 	return (
 		<input
@@ -24,15 +25,15 @@ const InputAutoWidth = forwardRef((props: InputHTMLAttributes<HTMLInputElement>,
 				if (typeof parentRef === 'function') {
 					parentRef(ref);
 				} else {
-					parentRef && (parentRef = ref);
+					// parentRef && (parentRef = ref);
 				}
 			}}
 			onChange={(e) => {
-				props.onChange?.(e);
+				// props.onChange?.(e);
 				internalRef && resize(internalRef);
 			}}
 		/>
 	);
-});
+};
 
 export default InputAutoWidth;

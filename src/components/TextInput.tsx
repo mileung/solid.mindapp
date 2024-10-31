@@ -1,21 +1,13 @@
-import { Check, Eye, EyeSlash, XMark } from 'solid-heroicons/solid';
-import { useCallback, createMemo, useRef, createSignal } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
 import InputAutoWidth from './InputAutoWidth';
+import { Icon } from 'solid-heroicons';
+import { check, eye, eyeSlash, xMark } from 'solid-heroicons/solid';
 
 export type TextInputRefObject = {
 	tag: HTMLElement | null;
 	readonly isValid: boolean;
 	value: string;
 	error: string;
-};
-
-export const useTextInputRef = () => {
-	return useRef<TextInputRefObject>({
-		tag: null,
-		isValid: true,
-		value: '',
-		error: '',
-	});
 };
 
 const normalizeNumericInput = (str: string, decimals: number, removeInsignificantZeros = false) => {
@@ -33,29 +25,12 @@ const normalizeNumericInput = (str: string, decimals: number, removeInsignifican
 	return str;
 };
 
-export default function TextInput({
-	_ref,
-	containerClassName,
-	autoFocus,
-	numeric,
-	password,
-	defaultValue,
-	maxDecimals = 0,
-	disabled,
-	label,
-	placeholder = '',
-	required,
-	maxLength,
-	getIssue = () => '',
-	onKeyUp,
-	onSubmit,
-	showCheckX: _showCheckX,
-}: {
+export default function TextInput(props: {
 	label: string;
 	_ref?: TextInputRefObject;
 	defaultValue?: string;
-	containerClassName?: string;
-	autoFocus?: boolean;
+	containerClass?: string;
+	autofocus?: boolean;
 	numeric?: boolean;
 	password?: boolean;
 	maxDecimals?: number;
@@ -69,47 +44,60 @@ export default function TextInput({
 	onSubmit?: (value: string) => void;
 	showCheckX?: boolean;
 }) {
-	const ipt = useRef<null | HTMLInputElement>(null);
-	const eyeBtn = useRef<HTMLButtonElement>(null);
-	const checkBtn = useRef<HTMLButtonElement>(null);
-	const xBtn = useRef<HTMLButtonElement>(null);
+	const {
+		_ref,
+		containerClass,
+		autofocus,
+		numeric,
+		password,
+		defaultValue,
+		maxDecimals = 0,
+		disabled,
+		label,
+		placeholder = '',
+		required,
+		maxLength,
+		getIssue = () => '',
+		onKeyUp,
+		onSubmit,
+		showCheckX: _showCheckX,
+	} = props;
+	let ipt: undefined | HTMLInputElement;
+	let eyeBtn: undefined | HTMLButtonElement;
+	let checkBtn: undefined | HTMLButtonElement;
+	let xBtn: undefined | HTMLButtonElement;
 	const [internalValue, internalValueSet] = createSignal(defaultValue || '');
 	const [error, errorSet] = createSignal('');
 	const [focused, focusedSet] = createSignal(false);
 	const [passwordVisible, passwordVisibleSet] = createSignal(false);
-	const id = createMemo(() => label.toLowerCase().replace(/\s+/g, '-'), [label]);
-	const keyUp = useRef(true);
+	const id = createMemo(() => label.toLowerCase().replace(/\s+/g, '-'));
+	let keyUp = true;
 
-	const submit = useCallback(
-		(value: string) => {
-			if (!password) value = value.trim();
-			onSubmit?.(value);
-			internalValueSet(value);
-			ipt!.blur();
-		},
-		[password, onSubmit],
+	const submit = (value: string) => {
+		if (!password) value = value.trim();
+		onSubmit?.(value);
+		internalValueSet(value);
+		ipt!.blur();
+	};
+
+	const showCheckX = createMemo(() =>
+		typeof _showCheckX === 'boolean'
+			? _showCheckX
+			: defaultValue !== undefined && defaultValue !== internalValue(),
 	);
 
-	const showCheckX = createMemo(
-		() =>
-			typeof _showCheckX === 'boolean'
-				? _showCheckX
-				: defaultValue !== undefined && defaultValue !== internalValue,
-		[_showCheckX, defaultValue, internalValue],
-	);
-
-	const onEditingBlur = useCallback(() => {
+	const onEditingBlur = () => {
 		setTimeout(() => {
 			if (![ipt, eyeBtn, checkBtn, xBtn].find((e) => e === document.activeElement)) {
 				focusedSet(false);
 			}
 		}, 0);
-	}, []);
+	};
 
 	return (
-		<div class={`w-fit relative ${error ? 'pb-0.5' : ''} ${containerClassName}`}>
+		<div class={`w-fit relative ${error() ? 'pb-0.5' : ''} ${containerClass}`}>
 			<label
-				htmlFor={id}
+				// htmlFor={id}
 				onMouseDown={() => setTimeout(() => ipt!.focus(), 0)}
 				class="leading-4 font-semibold block transition"
 			>
@@ -118,14 +106,14 @@ export default function TextInput({
 			</label>
 			<div class="flex h-10">
 				<InputAutoWidth
-					id={id}
+					// id={id}
 					placeholder={placeholder}
 					disabled={disabled}
-					autoFocus={autoFocus}
-					autoComplete="off"
+					autofocus={autofocus}
+					autocomplete="off"
 					class="leading-3 min-w-52 border-b-2 text-2xl font-medium transition border-mg2 hover:border-fg2 focus:border-fg2"
 					type={password && !passwordVisible ? 'password' : 'text'}
-					value={internalValue}
+					// value={internalValue}
 					onFocus={() => focusedSet(true)}
 					onBlur={onEditingBlur}
 					onKeyUp={() => (keyUp = true)}
@@ -134,9 +122,9 @@ export default function TextInput({
 						if (keyUp) {
 							if (e.key === 'Escape') {
 								internalValueSet(defaultValue || '');
-								Ipt?.blur();
+								ipt?.blur();
 							}
-							if (e.key === 'Enter') submit(internalValue);
+							if (e.key === 'Enter') submit(internalValue());
 						}
 						keyUp = false;
 					}}
@@ -144,7 +132,7 @@ export default function TextInput({
 						if (disabled) {
 							return;
 						}
-						error && errorSet('');
+						error() && errorSet('');
 						if (numeric && value) {
 							// eslint-disable-next-line
 							value = value.replace(/[^0123456789\.]/g, '');
@@ -152,7 +140,7 @@ export default function TextInput({
 						}
 						internalValueSet(maxLength ? value.slice(0, maxLength) : value);
 					}}
-					ref={(tag: HTMLInputElement | null) => {
+					ref={(tag) => {
 						ipt = tag;
 						if (_ref) {
 							_ref.tag = tag;
@@ -189,23 +177,27 @@ export default function TextInput({
 						onBlur={onEditingBlur}
 						onMouseDown={(e) => e.preventDefault()}
 						onClick={() => {
-							passwordVisibleSet(!passwordVisible);
+							passwordVisibleSet(!passwordVisible());
 							setTimeout(() => {
 								// move cursor to end
 								ipt!.setSelectionRange(internalValue.length, internalValue.length);
 							}, 0);
 						}}
 					>
-						{passwordVisible ? <EyeSlash class="w-5" /> : <Eye class="w-5" />}
+						{passwordVisible() ? (
+							<Icon path={eyeSlash} class="w-5" />
+						) : (
+							<Icon path={eye} class="w-5" />
+						)}
 					</button>
 				)}
-				{showCheckX && focused && (
+				{showCheckX() && focused() && (
 					<>
 						<button
 							ref={checkBtn}
 							class="w-8 xy transition text-fg2 hover:text-fg1"
 							onBlur={onEditingBlur}
-							onClick={() => submit(internalValue)}
+							onClick={() => submit(internalValue())}
 						>
 							<Icon path={check} class="w-5" />
 						</button>
@@ -215,15 +207,15 @@ export default function TextInput({
 							onBlur={onEditingBlur}
 							onClick={() => {
 								internalValueSet(defaultValue || '');
-								Ipt?.blur();
+								ipt?.blur();
 							}}
 						>
-							<XMark class="w-5" />
+							<Icon path={xMark} class="w-5" />
 						</button>
 					</>
 				)}
 			</div>
-			{error && <p class="mt-1 leading-3 font-bold text-red-500">{error}</p>}
+			{error() && <p class="mt-1 leading-3 font-bold text-red-500">{error()}</p>}
 		</div>
 	);
 }

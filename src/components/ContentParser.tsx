@@ -1,19 +1,14 @@
-import React, { createMemo, createSignal } from 'solid-js';
 import { Thought, isThoughtId } from '../utils/ClientThought';
 import MentionedThought from './MentionedThought';
-import { Play, XMark } from 'solid-heroicons/solid';
 import MiniMentionedThought from './MiniMentionedThought';
-import { useMentionedThoughts } from '../utils/state';
 import { isRecord } from '../utils/js';
+import { createMemo, createSignal } from 'solid-js';
+import { mentionedThoughts } from '~/utils/state';
+import { play, xMark } from 'solid-heroicons/solid';
+import { Icon } from 'solid-heroicons';
 
-export default function ContentParser({
-	miniMentions,
-	thought,
-}: {
-	miniMentions?: boolean;
-	thought: Thought;
-}) {
-	const [mentionedThoughts] = useMentionedThoughts();
+export default function ContentParser(props: { miniMentions?: boolean; thought: Thought }) {
+	const { miniMentions, thought } = props;
 	const htmlNodes = createMemo(() => {
 		let content: undefined | string[] | Record<string, string>;
 		try {
@@ -26,14 +21,12 @@ export default function ContentParser({
 			return content.map((str, i) => {
 				if (i % 2) {
 					return miniMentions ? (
-						<MiniMentionedThought key={i} thoughtId={str} />
+						<MiniMentionedThought thoughtId={str} />
 					) : mentionedThoughts[str] ? (
-						<MentionedThought key={i} thought={mentionedThoughts[str]} />
+						<MentionedThought thought={mentionedThoughts[str]} />
 					) : (
 						// Missing mentioned thought
-						<p class="" key={i}>
-							{str}
-						</p>
+						<p class="">{str}</p>
 					);
 				}
 				// remove the first new line cuz the mentioned thought has block display
@@ -47,7 +40,7 @@ export default function ContentParser({
 			<div class="">
 				{Object.entries(content).map(([key, val]) => {
 					return (
-						<div key={key} class="flex">
+						<div class="flex">
 							<span class="font-mono font-semibold whitespace-pre">
 								{key.padEnd(longestKeyLength, ' ')}
 							</span>
@@ -63,9 +56,9 @@ export default function ContentParser({
 				})}
 			</div>
 		);
-	}, [thought.content]);
+	});
 
-	return htmlNodes;
+	return htmlNodes();
 }
 
 function parseMd(text: string) {
@@ -94,14 +87,10 @@ function parseMd(text: string) {
 	return result.map((tag, i) => {
 		// console.log('tag:', tag);
 		if (typeof tag === 'string') {
-			return !tag ? null : (
-				<p key={i} class="whitespace-pre-wrap break-words inline font-medium">
-					{tag}
-				</p>
-			);
+			return !tag ? null : <p class="whitespace-pre-wrap break-words inline font-medium">{tag}</p>;
 		} else if ('uri' in tag) {
 			return (
-				<React.Fragment key={i}>
+				<>
 					<a
 						target="_blank"
 						href={tag.uri}
@@ -110,7 +99,7 @@ function parseMd(text: string) {
 						{tag.text}
 					</a>
 					<IframePreview uri={tag.uri} />
-				</React.Fragment>
+				</>
 			);
 		}
 	});
@@ -118,28 +107,33 @@ function parseMd(text: string) {
 
 const ytRegex =
 	/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-const IframePreview = ({ uri }: { uri: string }) => {
+const IframePreview = (props: { uri: string }) => {
+	const { uri } = props;
 	const [open, openSet] = createSignal(false);
 	const iframe = createMemo(() => {
 		const videoId = uri.match(ytRegex)?.[1];
 		if (videoId) {
 			return (
 				<iframe
-					allowFullScreen
+					allowfullscreen
 					class="w-full max-h-[80vh] max-w-[calc(80vh*16/9)] aspect-video"
 					src={`https://www.youtube.com/embed/${videoId}`}
 				/>
 			);
 		}
-	}, [uri]);
+	});
 
 	return (
-		iframe && (
+		iframe() && (
 			<>
-				<button class="h-5 w-5 rounded bg-mg2 xy inline-flex" onClick={() => openSet(!open)}>
-					{open ? <XMark class="absolute h-5 w-5" /> : <Play class="absolute h-4 w-4" />}
+				<button class="h-5 w-5 rounded bg-mg2 xy inline-flex" onClick={() => openSet(!open())}>
+					{open() ? (
+						<Icon path={xMark} class="absolute h-5 w-5" />
+					) : (
+						<Icon path={play} class="absolute h-4 w-4" />
+					)}
 				</button>
-				{open && iframe}
+				{open() && iframe()}
 			</>
 		)
 	);

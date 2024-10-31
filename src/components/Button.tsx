@@ -1,27 +1,27 @@
-import { createMemo } from 'solid-js';
-import { A } from 'react-router-dom';
+import { createMemo, JSX } from 'solid-js';
+import { A } from '@solidjs/router';
 
-export function Button({
-	on,
-	to,
-	onClick = () => {},
-	label,
-	state,
-}: {
+export function Button(props: {
 	on?: boolean;
-	to?: string;
-	onClick?: React.MouseEventHandler<HTMLButtonElement>;
+	href?: string;
+	onClick?: JSX.EventHandlerUnion<
+		HTMLAnchorElement,
+		MouseEvent,
+		JSX.EventHandler<HTMLAnchorElement, MouseEvent>
+	>;
 	label: string;
 	state?: any;
 }) {
-	const Tag = createMemo(() => (to ? A : 'button'), []);
+	const { on, href, onClick = () => {}, label, state } = props;
+	const Tag = createMemo(() => (href ? A : 'button'));
+
 	return (
 		// @ts-ignore
 		<Tag
 			class={`block w-fit text-lg font-semibold rounded px-2 border-2 transition hover:text-fg1 ${
 				on ? 'text-fg1 border-fg1' : 'text-fg2 border-fg2'
 			}`}
-			{...{ to, onClick, state }}
+			{...{ href, onClick, state }}
 		>
 			{label}
 		</Tag>

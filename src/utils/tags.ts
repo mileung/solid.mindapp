@@ -40,7 +40,7 @@ export function makeRootTag(tagTree: TagTree, label: string) {
 			subRecTags:
 				!subTags || lineage.includes(label)
 					? null
-					: subTags.map((subsetLabel) => expand(subsetLabel, [...lineage, label])),
+					: subTags.map((subsetLabel) => expand(subsetLabel)),
 		};
 	};
 

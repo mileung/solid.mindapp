@@ -1,16 +1,12 @@
 import { Button } from './Button';
 
-export function InputPicker({
-	title,
-	options,
-	value,
-	onSubmit,
-}: {
+export function InputPicker(props: {
 	title: string;
 	options: string[];
 	value: string;
 	onSubmit: (value: string) => void;
 }) {
+	const { title, options, value, onSubmit } = props;
 	return (
 		<div>
 			<p class="leading-4 font-semibold">{title}</p>

@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer/';
 import crypto from 'crypto';
 import * as bip32 from '@scure/bip32';
 import * as bip39 from '@scure/bip39';

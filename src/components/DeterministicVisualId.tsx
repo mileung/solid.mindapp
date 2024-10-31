@@ -2,38 +2,37 @@ import { createMemo } from 'solid-js';
 import { Space } from '../utils/settings';
 
 const DeterministicVisualId = (props: { class?: string; input?: Space | string }) => {
-	const input =
-		typeof props.input === 'string'
-			? props.input
-			: props.input?.host + (props.input?.owner?.id || '');
-	const inputExists = createMemo(() => !!input);
-	const aaa = createMemo(() => stringToNumber(input, -35, -15));
-	const bbb = createMemo(() => stringToNumber(input.slice(4), 20, 40));
+	const input = createMemo(() => {
+		const { input = '' } = props;
+		return typeof input === 'string' ? input : input?.host + (input?.owner?.id || '');
+	});
+	const aaa = createMemo(() => stringToNumber(input(), -35, -15));
+	const bbb = createMemo(() => stringToNumber(input()?.slice(4), 20, 40));
 
 	return (
 		<div
 			class={props.class}
 			style={{
-				'background-color': inputExists() ? stringToColor(input) : '#ccc',
+				'background-color': input() ? stringToColor(input()) : '#ccc',
 			}}
 		>
-			{inputExists() && (
+			{input() && (
 				<div
 					class="mt-[50%] ml-[50%] h-full w-full"
 					style={{
-						rotate: stringToAngle(input),
+						rotate: stringToAngle(input()),
 						'transform-origin': 'top left',
 						transform: `translateX(${aaa()}%) translateY(${aaa()}%)`,
 					}}
 				>
 					<div
 						class="h-[150%] w-[150%]"
-						style={{ 'background-color': stringToColor(input.slice(3)) }}
+						style={{ 'background-color': stringToColor(input().slice(3)) }}
 					>
 						<div
 							class="h-[60%] w-[60%]"
 							style={{
-								'background-color': stringToColor(input.slice(6)),
+								'background-color': stringToColor(input().slice(6)),
 								transform: `translateX(${bbb()}%) translateY(${bbb()}%)`,
 							}}
 						></div>

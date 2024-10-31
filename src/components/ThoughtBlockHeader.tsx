@@ -1,30 +1,21 @@
-import { Cube, CubeTransparent, FingerPrint, PlayCircle } from 'solid-heroicons/solid';
-import { createEffect, createMemo } from 'solid-js';
-import { A } from 'react-router-dom';
+import { A } from '@solidjs/router';
 import { Thought, getThoughtId } from '../utils/ClientThought';
 import { copyToClipboardAsync } from '../utils/js';
-import { useFetchedSpaces, useAuthors, useSavedFileThoughtIds } from '../utils/state';
 import { formatTimestamp } from '../utils/time';
 import DeterministicVisualId from './DeterministicVisualId';
 import { localClientHost } from '../utils/api';
+import { createEffect, createMemo, Setter } from 'solid-js';
+import { authors, fetchedSpaces, savedFileThoughtIds, savedFileThoughtIdsSet } from '~/utils/state';
+import { Icon } from 'solid-heroicons';
+import { cube, cubeTransparent, fingerPrint } from 'solid-heroicons/solid';
 
-export default function ThoughtBlockHeader({
-	thought,
-	parsed,
-	parsedSet,
-}: {
+export default function ThoughtBlockHeader(props: {
 	thought: Thought;
 	parsed: boolean;
-	parsedSet: React.Dispatch<React.SetStateAction<boolean>>;
+	parsedSet: Setter<boolean>;
 }) {
-	const [authors] = useAuthors();
-
-	const [savedFileThoughtIds, savedFileThoughtIdsSet] = useSavedFileThoughtIds();
-	const thoughtId = createMemo(() => getThoughtId(thought), [thought]);
-	const filedSaved = createMemo(
-		() => savedFileThoughtIds[thoughtId],
-		[savedFileThoughtIds[thoughtId]],
-	);
+	const { thought, parsed, parsedSet } = props;
+	const thoughtId = createMemo(() => getThoughtId(thought));
 	const spaceUrl = createMemo(() => {
 		const { protocol, host } = new URL(
 			`http${thought.spaceHost && !thought.spaceHost.startsWith('localhost') ? 's' : ''}:${
@@ -36,28 +27,20 @@ export default function ThoughtBlockHeader({
 		const sld = parts[1];
 		return `${protocol}//${
 			thought.spaceHost && tld && sld ? `${sld}.${tld}` : localClientHost
-		}/${thoughtId}`;
-	}, [thought]);
-	const time = createMemo(() => formatTimestamp(thought.createDate), [thought.createDate]);
-
-	createEffect(() => {
-		// OPTIMIZE: Results component could recursively set this
-		savedFileThoughtIdsSet((old) => ({
-			...old, //
-			[thoughtId]: !!thought.filedSaved,
-		}));
-	}, []);
+		}/${thoughtId()}`;
+	});
+	const time = createMemo(() => formatTimestamp(thought.createDate));
 
 	return (
 		<div class="mr-1 fx h-5 text-fg2 max-w-full">
 			<A
 				target="_blank"
-				href={`/${thoughtId}`}
+				href={`/${thoughtId()}`}
 				class={`${
-					time.length > 9 ? 'truncate' : ''
+					time().length > 9 ? 'truncate' : ''
 				} text-sm font-bold transition text-fg2 hover:text-fg1 px-1 -ml-1 h-6 xy`}
 			>
-				{time}
+				{time()}
 			</A>
 			<A
 				target="_blank"
@@ -76,7 +59,7 @@ export default function ThoughtBlockHeader({
 			</A>
 			<a
 				target="_blank"
-				href={spaceUrl}
+				href={spaceUrl()}
 				class={`h-6 px-1 mr-auto truncate fx text-sm font-bold transition text-fg2 hover:text-fg1 ${
 					thought.spaceHost ? '' : 'italic'
 				}`}
@@ -97,7 +80,7 @@ export default function ThoughtBlockHeader({
 					textToSpeech('Hello, this is a test of text-to-speech functionality.');
 				}}
 			>
-				<PlayCircle class="h-4 w-4" />
+				<PlayCircleIcon class="h-4 w-4" />
 			</button> */}
 			{/* <button
 				class="h-6 px-1 hover:text-fg1 transition"
@@ -108,17 +91,21 @@ export default function ThoughtBlockHeader({
 			</button> */}
 			<button
 				class="h-6 px-1 hover:text-fg1 transition"
-				onClick={() => copyToClipboardAsync(`${thoughtId}`)}
+				onClick={() => copyToClipboardAsync(`${thoughtId()}`)}
 			>
-				<FingerPrint class="h-4 w-4" />
+				<Icon path={fingerPrint} class="h-4 w-4" />
 			</button>
 			<button class="-mr-1 h-6 px-1 hover:text-fg1 transition" onClick={() => parsedSet(!parsed)}>
-				{parsed ? <Cube class="h-4 w-4" /> : <CubeTransparent class="h-4 w-4" />}
+				{parsed ? (
+					<Icon path={cube} class="h-4 w-4" />
+				) : (
+					<Icon path={cubeTransparent} class="h-4 w-4" />
+				)}
 			</button>
 			{/* <button
 				class="h-6 px-1 hover:text-fg1 transition"
 				onClick={() => {
-					savedFileThoughtIdsSet({ ...savedFileThoughtIds, [thoughtId]: !filedSaved });
+					savedFileThoughtIdsSet({ ...savedFileThoughtIds, [thoughtId()]: !filedSaved });
 					ping(
 						makeUrl('write-local-file'),
 						post({ thought })
@@ -126,9 +113,9 @@ export default function ThoughtBlockHeader({
 				}}
 			>
 				{filedSaved ? (
-					<DocumentCheck class="h-4 w-4" />
+					<DocumentCheckIcon class="h-4 w-4" />
 				) : (
-					<ArrowDownTray class="h-4 w-4 text-" />
+					<ArrowDownTrayIcon class="h-4 w-4 text-" />
 				)}
 			</button> */}
 		</div>

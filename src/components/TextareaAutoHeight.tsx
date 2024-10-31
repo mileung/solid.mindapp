@@ -1,4 +1,4 @@
-import { useRef, TextareaHTMLAttributes, forwardRef } from 'solid-js';
+import { JSX } from 'solid-js';
 
 const resize = (node: HTMLTextAreaElement) => {
 	setTimeout(() => {
@@ -7,33 +7,31 @@ const resize = (node: HTMLTextAreaElement) => {
 	}, 0);
 };
 
-const TextareaAutoHeight = forwardRef(
-	(props: TextareaHTMLAttributes<HTMLTextAreaElement>, parentRef) => {
-		const internalRef = useRef<null | HTMLTextAreaElement>(null);
-		const mounted = useRef(false);
+const TextareaAutoHeight = (props: JSX.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
+	let internalRef: undefined | HTMLTextAreaElement;
+	let mounted = false;
 
-		return (
-			<textarea
-				{...props}
-				ref={(ref) => {
-					if (mounted) return;
-					mounted = true;
-					ref && resize(ref);
-					internalRef = ref;
-					if (typeof parentRef === 'function') {
-						parentRef(ref);
-					} else {
-						parentRef && (parentRef = ref);
-					}
-				}}
-				// I'm cool with auto height just on mount
-				onChange={(e) => {
-					props.onChange?.(e);
-					internalRef && resize(internalRef);
-				}}
-			/>
-		);
-	},
-);
-
+	return (
+		<textarea
+			{...props}
+			ref={(ref) => {
+				if (mounted) return;
+				mounted = true;
+				ref && resize(ref);
+				internalRef = ref;
+				// if (typeof parentRef === 'function') {
+				// 	parentRef(ref);
+				// } else {
+				// 	parentRef && (parentRef = ref);
+				// }
+			}}
+			// I'm cool with auto height just on mount
+			onChange={(e) => {
+				// @ts-ignore
+				props.onChange?.(e);
+				internalRef && resize(internalRef);
+			}}
+		/>
+	);
+};
 export default TextareaAutoHeight;

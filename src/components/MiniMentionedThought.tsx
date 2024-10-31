@@ -1,7 +1,8 @@
-import { A } from 'react-router-dom';
+import { A } from '@solidjs/router';
 import { formatTimestamp } from '../utils/time';
 
-export default function MiniMentionedThought({ thoughtId }: { thoughtId: string }) {
+export default function MiniMentionedThought(props: { thoughtId: string }) {
+	const { thoughtId } = props;
 	return (
 		<A
 			target="_blank"

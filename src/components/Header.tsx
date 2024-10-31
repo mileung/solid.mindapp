@@ -119,9 +119,9 @@ export default function Header() {
 			searchIpt?.blur();
 			setTimeout(() => {
 				if (newTab) {
-					window.open(`/search?${queryString}`, '_blank');
+					window.open(`/?${queryString}`, '_blank');
 				} else {
-					navigate(`/search?${queryString}`);
+					navigate(`/?${queryString}`);
 				}
 			}, 0);
 			// setTimeout prevents search from adding new line to contentTextarea on enter
@@ -165,7 +165,7 @@ export default function Header() {
 						<img
 							src={'/mindapp-logo.svg'}
 							alt="logo"
-							class={`h-7 ${hostedLocally && rootSettings()?.testWorkingDirectory && 'grayscale'}`}
+							class={`h-7 ${hostedLocally && rootSettings.testWorkingDirectory && 'grayscale'}`}
 						/>
 						<p class="ml-2 text-2xl font-black hidden sm:block">Mindapp</p>
 					</a>
@@ -309,9 +309,10 @@ export default function Header() {
 								<div class="max-h-48 overflow-scroll">
 									{(
 										((switchingSpaces()
-											? personas[0].spaceHosts.map((host) => fetchedSpaces()[host])
+											? personas[0].spaceHosts.map((host) => fetchedSpaces[host])
 											: personas) || []) as (Space & Persona)[]
 									).map((thing, i) => {
+										console.log('thing:', thing);
 										const thingKey = switchingSpaces() ? thing?.host : thing.id;
 										const showCheck = !i;
 										return (

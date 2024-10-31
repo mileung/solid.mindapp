@@ -28,6 +28,7 @@
 		"@vite/vitejs": "2.3.19",
 		"ajv": "8.13.0",
 		"big.js": "6.2.1",
+		"buffer": "6.0.3",
 		"dayjs": "1.11.10",
 		"match-sorter": "6.3.4",
 		"secp256k1": "5.0.1",
@@ -38,6 +39,7 @@
 		"node": ">=18"
 	},
 	"devDependencies": {
+		"@types/big.js": "6.2.2",
 		"@types/secp256k1": "4.0.6",
 		"autoprefixer": "10.4.20",
 		"postcss": "8.4.47",
