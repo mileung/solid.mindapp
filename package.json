@@ -1,6 +1,7 @@
 {
-	"name": "example-basic",
+	"name": "mindapp",
 	"type": "module",
+	"description": "Mindapp is the open source thought organizer",
 	"scripts": {
 		"dev": "vinxi dev --port 1111",
 		"build": "vinxi build",
@@ -44,6 +45,12 @@
 		"autoprefixer": "10.4.20",
 		"postcss": "8.4.47",
 		"tailwindcss": "3.4.14",
-		"vinxi": "0.4.3"
+		"vinxi": "0.4.3",
+		"vite-plugin-node-polyfills": "0.22.0"
+	},
+	"author": {
+		"name": "Michael Leung",
+		"email": "mileung@proton.me",
+		"url": "https://mindapp.cc/@zcWxb5meg4CTP1TkmtCSKGiihr1zo1wyuJRhnU3dqbTZ"
 	}
 }

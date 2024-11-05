@@ -1,11 +1,12 @@
 import { defineConfig } from '@solidjs/start/config';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig({
 	vite: {
-		resolve: {
-			alias: {
-				process: 'process/browser',
-			},
-		},
+		plugins: [
+			nodePolyfills({
+				include: ['buffer'],
+			}),
+		],
 	},
 });

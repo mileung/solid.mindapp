@@ -4,29 +4,29 @@ import MiniMentionedThought from './MiniMentionedThought';
 import { isRecord } from '../utils/js';
 import { createMemo, createSignal } from 'solid-js';
 import { mentionedThoughts } from '~/utils/state';
-import { play, xMark } from 'solid-heroicons/solid';
+import { play, xMark } from 'solid-heroicons/solid-mini';
 import { Icon } from 'solid-heroicons';
 
-export default function ContentParser(props: { miniMentions?: boolean; thought: Thought }) {
+export default function ContentParser(props: { miniMentions?: boolean; thought: () => Thought }) {
 	const { miniMentions, thought } = props;
 	const htmlNodes = createMemo(() => {
 		let content: undefined | string[] | Record<string, string>;
 		try {
-			const record = JSON.parse(thought.content || '');
+			const record = JSON.parse(thought().content || '');
 			if (isRecord(record)) content = record;
 		} catch (e) {}
-		content = content || separateMentions(thought.content || '');
-
+		content = content || separateMentions(thought().content || '');
 		if (Array.isArray(content)) {
 			return content.map((str, i) => {
+				str = str.trim();
 				if (i % 2) {
 					return miniMentions ? (
 						<MiniMentionedThought thoughtId={str} />
 					) : mentionedThoughts[str] ? (
-						<MentionedThought thought={mentionedThoughts[str]} />
+						<MentionedThought thought={() => mentionedThoughts[str]} />
 					) : (
 						// Missing mentioned thought
-						<p class="">{str}</p>
+						<p class="break-words">{str}</p>
 					);
 				}
 				// remove the first new line cuz the mentioned thought has block display

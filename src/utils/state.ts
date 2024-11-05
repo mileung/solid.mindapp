@@ -1,5 +1,5 @@
 import Ajv from 'ajv';
-import { createSignal } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { isServer } from 'solid-js/web';
 import { SignedAuthor } from '../types/Author';
@@ -7,7 +7,7 @@ import { Persona } from '../types/PersonasPolyfill';
 import { Thought } from './ClientThought';
 import { hostedLocally, testingExternalClientLocally } from './api';
 import { RootSettings, Space, WorkingDirectory } from './settings';
-import { TagTree } from './tags';
+import { getTagRelations, listAllTags, TagTree } from './tags';
 
 export const defaultSpaceHost = hostedLocally
 	? ''
@@ -67,9 +67,10 @@ export const updateLocalState = (stateUpdate: Partial<LocalState>) => {
 	return mergedState;
 };
 
-export const [personas, personasSet] = createStore<Persona[]>(defaultLocalState.personas);
-
 export const [tagMapOpen, tagMapOpenSet] = createSignal<boolean>(false);
+
+export const [personas, personasSet] = createStore<Persona[]>(defaultLocalState.personas);
+export const [roots, rootsSet] = createStore<(null | Thought)[]>([]);
 export const [fetchedSpaces, fetchedSpacesSet] = createStore<Record<string, Space>>({});
 export const [savedFileThoughtIds, savedFileThoughtIdsSet] = createStore<Record<string, boolean>>(
 	{},
@@ -79,16 +80,16 @@ export const [mentionedThoughts, mentionedThoughtsSet] = createStore<Record<stri
 export const [rootSettings, rootSettingsSet] = createStore<RootSettings>({
 	testWorkingDirectory: false,
 });
-export const [workingDirectory, workingDirectorySet] = createSignal<
-	undefined | null | WorkingDirectory
->(undefined);
+// export const [workingDirectory, workingDirectorySet] = createStore<
+// 	{ loading: true } | WorkingDirectory
+// >({ loading: true });
 export const [lastUsedTags, lastUsedTagsSet] = createStore<string[]>([]);
 export const [localState, localStateSet] = createStore<LocalState>(defaultLocalState);
 export const [tagTree, tagTreeSet] = createStore<TagTree>({
 	// parents: {},
 	// loners: [],
-	parents: { parent: ['child1', 'child2'] },
-	loners: ['outcast'],
+	parents: { Music: ['Rock Music', 'K-Pop'] },
+	loners: ['Golf Course'],
 });
 // TODO: For users hosting mindapp locally, indicate wherever tags are displayed which ones overlap with the local and space tag tree, tags that are specific  to the space, and tags that specific to what's local
 // export const [localTagTree,localTagTreeSet] = createSignal<null | TagTree>(null);

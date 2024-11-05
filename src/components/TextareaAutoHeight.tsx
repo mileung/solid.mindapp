@@ -7,7 +7,9 @@ const resize = (node: HTMLTextAreaElement) => {
 	}, 0);
 };
 
-const TextareaAutoHeight = (props: JSX.TextareaHTMLAttributes<HTMLTextAreaElement>) => {
+const TextareaAutoHeight = (
+	props: JSX.TextareaHTMLAttributes<HTMLTextAreaElement> & { defaultValue: string },
+) => {
 	let internalRef: undefined | HTMLTextAreaElement;
 	let mounted = false;
 
@@ -19,6 +21,9 @@ const TextareaAutoHeight = (props: JSX.TextareaHTMLAttributes<HTMLTextAreaElemen
 				mounted = true;
 				ref && resize(ref);
 				internalRef = ref;
+				ref.value = props.defaultValue || '';
+				setTimeout(() => ref.focus(), 0); // Not sure why I need this to autofocus but I do
+
 				// if (typeof parentRef === 'function') {
 				// 	parentRef(ref);
 				// } else {
@@ -26,7 +31,7 @@ const TextareaAutoHeight = (props: JSX.TextareaHTMLAttributes<HTMLTextAreaElemen
 				// }
 			}}
 			// I'm cool with auto height just on mount
-			onChange={(e) => {
+			onInput={(e) => {
 				// @ts-ignore
 				props.onChange?.(e);
 				internalRef && resize(internalRef);

@@ -14,4 +14,4 @@ export const setTheme = (theme: LocalState['theme']) => {
 	}
 };
 
-if (!isServer) setTheme(getLocalState().theme);
+// if (!isServer) setTheme(getLocalState().theme);

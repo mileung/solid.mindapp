@@ -2,19 +2,17 @@ import { createEffect, createSignal, JSX } from 'solid-js';
 
 const width = 'w-[70%] max-w-lg md:min-w-80 md:w-[30%]';
 
-const Drawer = (props: { isOpen: boolean; onClose?: () => void; children: JSX.Element }) => {
+const Drawer = (props: { isOpen: () => boolean; onClose?: () => void; children: JSX.Element }) => {
 	const { isOpen, onClose, children } = props;
 	const [showBackdrop, setShowBackdrop] = createSignal(false);
 	const [backdropOpacity, setBackdropOpacity] = createSignal(false);
 
 	createEffect(() => {
-		if (isOpen) {
+		if (isOpen()) {
 			setShowBackdrop(true);
-			// Small delay to ensure the backdrop is in the DOM before fading in
 			setTimeout(() => setBackdropOpacity(true), 10);
 		} else {
 			setBackdropOpacity(false);
-			// Wait for fade out animation before removing from DOM
 			const timer = setTimeout(() => setShowBackdrop(false), 300);
 			return () => clearTimeout(timer);
 		}
@@ -34,7 +32,7 @@ const Drawer = (props: { isOpen: boolean; onClose?: () => void; children: JSX.El
 			)}
 			<div
 				class={`block md:hidden rounded-r fixed inset-y-0 left-0 z-50 bg-bg2 shadow-lg transform ${width} ${
-					isOpen ? 'translate-x-0' : '-translate-x-full'
+					isOpen() ? 'translate-x-0' : '-translate-x-full'
 				} transition-transform duration-300 ease-in-out`}
 			>
 				<div>{children}</div>

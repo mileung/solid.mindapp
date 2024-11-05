@@ -9,7 +9,7 @@ export function sortKeysRecursively(thing: Record<string, any> | any[]): any[] {
 		  })
 		: Object.entries(thing)
 				.filter(([key, val]) => !!val)
-				.sort(([a]) => a.localeCompare(b))
+				.sort(([a], [b]) => a.localeCompare(b))
 				.map(([key, val]) => [key, isRecord(val) ? sortKeysRecursively(val) : val]);
 }
 
@@ -39,3 +39,16 @@ export const copyToClipboardAsync = (str = '') => {
 
 export const makeReadable = (err: any) =>
 	err.toString() === '[object Object]' ? JSON.stringify(err) : err.toString();
+
+export function clone<T>(obj: T): T {
+	if (obj === null || obj === undefined) {
+		return obj;
+	}
+	if (Array.isArray(obj)) {
+		return obj.map((item) => clone(item)) as unknown as T;
+	}
+	if (typeof obj === 'object') {
+		return Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, clone(value)])) as T;
+	}
+	return obj;
+}

@@ -28,7 +28,7 @@ const InputAutoWidth = (props: JSX.InputHTMLAttributes<HTMLInputElement> & { par
 					// parentRef && (parentRef = ref);
 				}
 			}}
-			onChange={(e) => {
+			onInput={(e) => {
 				// props.onChange?.(e);
 				internalRef && resize(internalRef);
 			}}

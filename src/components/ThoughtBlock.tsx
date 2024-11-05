@@ -11,12 +11,12 @@ import {
 	plus,
 	trash,
 	xMark,
-} from 'solid-heroicons/solid';
+} from 'solid-heroicons/solid-mini';
 import { createMemo, createSignal, JSX } from 'solid-js';
-import { hostedLocally, makeUrl, ping, post } from '~/utils/api';
+import { buildUrl, hostedLocally, makeUrl, ping, post } from '~/utils/api';
 import { getThoughtId, Thought } from '~/utils/ClientThought';
-import { isStringifiedRecord, makeReadable } from '~/utils/js';
-import { getSignature } from '~/utils/signing';
+import { clone, isStringifiedRecord, makeReadable } from '~/utils/js';
+import { getSignature, sendMessage } from '~/utils/signing';
 import { activeSpace, authors, personas } from '~/utils/state';
 import { minute, second } from '../utils/time';
 import ContentParser from './ContentParser';
@@ -25,7 +25,7 @@ import { ThoughtWriter } from './ThoughtWriter';
 import Voters from './Voters';
 
 export default function ThoughtBlock(props: {
-	thought: Thought;
+	thought: () => Thought;
 	roots: (null | Thought)[];
 	onRootsChange: (newRoots: (null | Thought)[]) => void;
 	onNewRoot?: () => void;
@@ -52,7 +52,7 @@ export default function ThoughtBlock(props: {
 	const [showVoters, showVotersSet] = createSignal(false);
 	const personaId = createMemo(() => personas[0].id);
 	const walletAddress = createMemo(() => personas[0].walletAddress);
-	const thoughtId = createMemo(() => getThoughtId(thought));
+	const thoughtId = createMemo(() => getThoughtId(thought()));
 	const highlighted = createMemo(() => highlightedId === thoughtId());
 	let linkingThoughtId = '';
 	let linkingDiv: undefined | HTMLDivElement;
@@ -62,14 +62,13 @@ export default function ThoughtBlock(props: {
 	let votesBtn: undefined | HTMLButtonElement;
 	let votesDv: undefined | HTMLDivElement;
 	let voteTimer: ReturnType<typeof setTimeout>;
-	const [upvoted, upvotedSet] = createSignal<undefined | boolean>(thought.votes?.own);
-	let currentVote: undefined | boolean = thought.votes?.own;
-	const [votes, votesSet] = createSignal<undefined | { up?: true; voterId: string }[]>();
+	const [upvoted, upvotedSet] = createSignal<undefined | boolean>(thought().votes?.own);
+	let currentVote: undefined | boolean = thought().votes?.own;
 	const voteCount = createMemo(() => {
-		const votes = { up: thought.votes?.up || 0, down: thought.votes?.down || 0 };
-		if (upvoted !== undefined) upvoted() ? votes.up++ : votes.down++;
-		if (thought.votes?.own !== undefined) {
-			thought.votes?.own ? votes.up-- : votes.down--;
+		const votes = { up: thought().votes?.up || 0, down: thought().votes?.down || 0 };
+		if (upvoted() !== undefined) upvoted() ? votes.up++ : votes.down++;
+		if (thought().votes?.own !== undefined) {
+			thought().votes?.own ? votes.up-- : votes.down--;
 		}
 		return votes;
 	});
@@ -91,10 +90,10 @@ export default function ThoughtBlock(props: {
 	const debouncedSwitchVote = async (up?: true) => {
 		if (!activeSpace.host) return alert('Cannot vote in local space');
 		if (!personaId) return alert('Anon cannot vote');
-		if (activeSpace.host !== thought.spaceHost) {
+		if (activeSpace.host !== thought().spaceHost) {
 			return alert('Cannot vote on thoughts created outside of the current space');
 		}
-		if (activeSpace.host !== thought.spaceHost) {
+		if (activeSpace.host !== thought().spaceHost) {
 			return alert('Cannot vote on thoughts created outside of the current space');
 		}
 		if (!activeSpace.deletableVotes && currentVote !== undefined) {
@@ -137,7 +136,7 @@ export default function ThoughtBlock(props: {
 			if (activeSpace.tokenId) {
 				if (!walletAddress) return alert('Persona missing walletAddress');
 				const toAddress = newVote
-					? authors[thought.authorId || '']?.walletAddress
+					? authors[thought().authorId || '']?.walletAddress
 					: activeSpace.downvoteAddress;
 				if (!toAddress) {
 					return newVote
@@ -177,7 +176,6 @@ export default function ThoughtBlock(props: {
 				...unsignedVote,
 				signature: (await getSignature(unsignedVote, unsignedVote.voterId))!,
 			};
-			// console.log('signedVote:', signedVote);
 			// sendMessage({
 			// 	from: personaId(),
 			// 	to: buildUrl({ host: activeSpace.host, path: 'vote-on-thought' }),
@@ -207,27 +205,27 @@ export default function ThoughtBlock(props: {
 					</div>
 				</button>
 				<div class="mt-0.5 flex-1 max-w-[calc(100%-1.25rem)]">
-					<ThoughtBlockHeader thought={thought} parsedSet={parsedSet} parsed={parsed()} />
+					<ThoughtBlockHeader thought={thought} parsedSet={parsedSet} parsed={parsed} />
 					<div class={`z-10 pb-1 pr-1 ${open() ? '' : 'hidden'}`}>
 						{editing() ? (
 							<div class="mt-1">
 								<ThoughtWriter
 									editId={thoughtId()}
-									parentId={thought.parentId}
+									parentId={thought().parentId}
 									onContentBlur={() => editingSet(false)}
-									initialContent={thought.content}
-									initialTags={thought.tags}
+									initialContent={thought().content}
+									initialTags={thought().tags}
 									onWrite={({ thought }, ctrlKey, altKey) => {
 										editingSet(false);
 										moreOptionsOpenSet(false);
 										ctrlKey && linkingSet(true);
-										altKey && onNewRoot();
-										const newRoots = [...roots] as Thought[];
+										altKey && onNewRoot(); // TODO: link parent tag
+										const newRoots = clone(roots);
 										let pointer = newRoots;
 										for (let i = 0; i < rootsIndices.length - 1; i++) {
-											pointer = pointer[rootsIndices[i]].children!;
+											pointer = pointer[rootsIndices[i]]!.children!;
 										}
-										const editedThought = pointer[rootsIndices.slice(-1)[0]];
+										const editedThought = pointer[rootsIndices.slice(-1)[0]]!;
 										editedThought.content = thought.content;
 										editedThought.tags = thought.tags;
 										onRootsChange(newRoots);
@@ -236,25 +234,25 @@ export default function ThoughtBlock(props: {
 							</div>
 						) : (
 							<>
-								{thought.content ? (
+								{thought().content ? (
 									parsed() ? (
 										<ContentParser thought={thought} />
 									) : (
 										<p class="whitespace-pre-wrap break-all font-thin font-mono">
-											{isStringifiedRecord(thought.content)
-												? JSON.stringify(JSON.parse(thought.content), null, 2)
-												: thought.content}
+											{isStringifiedRecord(thought().content)
+												? JSON.stringify(JSON.parse(thought().content!), null, 2)
+												: thought().content}
 										</p>
 									)
 								) : (
 									<p class="font-semibold text-fg2 italic">No content</p>
 								)}
-								{!!thought.tags?.length && (
+								{!!thought().tags?.length && (
 									<div class="flex flex-wrap gap-x-2">
-										{thought.tags.map((tag) => (
+										{thought().tags!.map((tag) => (
 											<A
 												target="_blank"
-												href={`/search?${new URLSearchParams({ q: `[${tag}]` }).toString()}`}
+												href={`/?q=[${encodeURIComponent(tag)}]`}
 												class="font-bold leading-5 transition text-fg2 hover:text-fg1"
 											>
 												{tag}
@@ -265,10 +263,9 @@ export default function ThoughtBlock(props: {
 							</>
 						)}
 						<div class="z-50 mt-2 flex gap-2 text-fg2 max-w-full justify-between">
-							{(true || activeSpace.host) && (
+							{activeSpace.host && (
 								<div class="z-20 fx h-4 relative">
 									<button
-										// TODO: make click area bigger and overlap with the collapse button.
 										class={`xy -ml-2 h-7 w-7 transition hover:text-orange-500 ${
 											upvoted() ? 'text-orange-500' : ''
 										}`}
@@ -328,8 +325,8 @@ export default function ThoughtBlock(props: {
 							</div>
 							<div class="fx gap-1 flex-wrap">{/*  */}</div>
 							{(!personas[0].spaceHosts[0] ||
-								(thought.authorId === personas[0].id &&
-									(thought.spaceHost || !!thought.content))) &&
+								(thought().authorId === personas[0].id &&
+									(thought().spaceHost || !!thought().content))) &&
 								(moreOptionsOpen() ? (
 									<div class="fx gap-2">
 										<button
@@ -346,33 +343,36 @@ export default function ThoughtBlock(props: {
 											class="h-4 w-4 xy hover:text-fg1 transition"
 											onClick={async () => {
 												const ok =
-													!!thought.spaceHost ||
-													Date.now() - thought.createDate < minute ||
-													confirm(
-														'This thought has already been archived in the Git snapshot history; delete it anyways?',
-													);
+													Date.now() - thought().createDate < minute ||
+													(!!thought().spaceHost
+														? confirm(
+																'This thought may have been saved by other users in the space; delete it anyways?',
+														  )
+														: confirm(
+																'This thought has already been archived in the Git snapshot history; delete it anyways?',
+														  ));
 												if (!ok) return;
-												const newRoots = [...roots] as Thought[];
+												const newRoots = clone(roots);
 												let pointer = newRoots;
 												for (let i = 0; i < rootsIndices.length - 1; i++) {
-													pointer = pointer[rootsIndices[i]].children!;
+													pointer = pointer[rootsIndices[i]]!.children!;
 												}
-												const deletedThought = pointer[rootsIndices.slice(-1)[0]];
-												// sendMessage<{ softDelete: true }>({
-												// 	from: personas[0]!.id,
-												// 	to: buildUrl({ host: activeSpace!.host, path: 'delete-thought' }),
-												// 	thoughtId,
-												// })
-												// 	.then(({ softDelete }) => {
-												// 		if (softDelete) {
-												// 			deletedThought.content = '';
-												// 			deletedThought.tags = [];
-												// 		} else {
-												// 			pointer.splice(rootsIndices.slice(-1)[0], 1);
-												// 		}
-												// 		onRootsChange(newRoots);
-												// 	})
-												// 	.catch((err) => alert(err));
+												const deletedThought = pointer[rootsIndices.slice(-1)[0]]!;
+												sendMessage<{ softDelete?: true }>({
+													from: personas[0]!.id,
+													to: buildUrl({ host: activeSpace.host, path: 'delete-thought' }),
+													thoughtId: thoughtId(),
+												})
+													.then(({ softDelete }) => {
+														if (softDelete) {
+															deletedThought.content = '';
+															deletedThought.tags = [];
+														} else {
+															pointer.splice(rootsIndices.slice(-1)[0], 1);
+														}
+														onRootsChange(newRoots);
+													})
+													.catch((err) => alert(err));
 											}}
 											onKeyDown={(e) => e.key === 'Escape' && moreOptionsOpenSet(false)}
 											onBlur={onShowMoreBlur}
@@ -382,7 +382,7 @@ export default function ThoughtBlock(props: {
 										<button
 											ref={pencilBtn}
 											class="h-4 w-4 xy hover:text-fg1 transition"
-											onClick={() => editingSet(!editing)}
+											onClick={() => editingSet(!editing())}
 											onKeyDown={(e) => e.key === 'Escape' && moreOptionsOpenSet(false)}
 											onBlur={onShowMoreBlur}
 										>
@@ -409,13 +409,13 @@ export default function ThoughtBlock(props: {
 									onWrite={({ thought }, ctrlKey, altKey) => {
 										altKey ? onNewRoot() : linkingSet(false);
 										ctrlKey && (linkingThoughtId = thoughtId());
-										const newRoots = [...roots] as Thought[];
+										const newRoots = clone(roots);
 										let pointer = newRoots;
 										for (let i = 0; i < rootsIndices.length; i++) {
-											if (!pointer[rootsIndices[i]].children) {
-												pointer[rootsIndices[i]].children = [];
+											if (!pointer[rootsIndices[i]]!.children) {
+												pointer[rootsIndices[i]]!.children = [];
 											}
-											pointer = pointer[rootsIndices[i]].children!;
+											pointer = pointer[rootsIndices[i]]!.children!;
 										}
 										pointer.unshift(thought);
 										onRootsChange(newRoots);
@@ -423,9 +423,9 @@ export default function ThoughtBlock(props: {
 								/>
 							</div>
 						)}
-						{thought.children && (
+						{thought().children && (
 							<div class="z-0 mt-1 space-y-1">
-								{thought.children.map(
+								{thought().children!.map(
 									(childThought, i) =>
 										childThought && (
 											<ThoughtBlock
@@ -434,7 +434,7 @@ export default function ThoughtBlock(props: {
 												roots={roots}
 												onRootsChange={onRootsChange}
 												rootsIndices={[...rootsIndices, i]}
-												thought={childThought}
+												thought={() => childThought}
 												depth={depth + 1}
 											/>
 										),
@@ -454,13 +454,13 @@ function Highlight(props: { depth: number; on: boolean; children: JSX.Element })
 	return on ? (
 		<div
 			ref={(r) => {
-				!scrolledTo &&
-					r &&
-					setTimeout(() => {
-						const yOffset = -50; // so header doesn't cover thought block
-						window.scrollTo({ top: r.getBoundingClientRect().top + window.scrollY + yOffset });
-						scrolledTo = true;
-					}, 0);
+				// !scrolledTo &&
+				// 	r &&
+				// 	setTimeout(() => {
+				// 		const yOffset = -50; // so header doesn't cover thought block
+				// 		window.scrollTo({ top: r.getBoundingClientRect().top + window.scrollY + yOffset });
+				// 		scrolledTo = true;
+				// 	}, 0);
 			}}
 			class={`${
 				!depth && 'shadow max-w-full'

@@ -1,0 +1,295 @@
+import { Title } from '@solidjs/meta';
+import { A, useNavigate, useParams } from '@solidjs/router';
+import { Icon } from 'solid-heroicons';
+import { globeAlt } from 'solid-heroicons/solid-mini';
+import { createEffect, createMemo } from 'solid-js';
+import { Button } from '~/components/Button';
+import DeterministicVisualId from '~/components/DeterministicVisualId';
+import { LabelVal } from '~/components/LabelVal';
+import TextInput from '~/components/TextInput';
+import { Author } from '~/types/Author';
+import { buildUrl, hostedLocally, localApiHost } from '~/utils/api';
+import { Space } from '~/utils/settings';
+import { sendMessage } from '~/utils/signing';
+import { fetchedSpaces, fetchedSpacesSet, personas, personasSet } from '~/utils/state';
+import { formatTimestamp } from '~/utils/time';
+import { createTitle } from '..';
+import { clone } from '~/utils/js';
+
+export default function ManageSpaces() {
+	const { spaceHost } = useParams();
+	createTitle(() => useParams().spaceHost); // Is this right?
+	const navigate = useNavigate();
+	const fetchedSpace = createMemo(() => (spaceHost ? fetchedSpaces[spaceHost] : undefined));
+	let hostIpt: undefined | HTMLInputElement;
+	const joinSpace = () => {
+		const newSpaceHost = hostIpt?.value.trim().toLowerCase();
+		if (
+			!newSpaceHost ||
+			newSpaceHost === localApiHost ||
+			personas[0].spaceHosts.find((h) => h == newSpaceHost)
+		) {
+			return alert('Host already added');
+		}
+		personasSet((o) => {
+			const old = clone(o);
+			old[0]?.spaceHosts.unshift(newSpaceHost);
+			return [...old];
+		});
+		setTimeout(() => navigate(`/spaces/${newSpaceHost}`), 0);
+	};
+
+	createEffect(() => {
+		if (spaceHost && !personas[0].spaceHosts.includes(spaceHost)) {
+			navigate('/spaces');
+		}
+	}, [personas[0].spaceHosts, spaceHost]);
+
+	return (
+		<div class="flex">
+			<Title>Spaces | Mindapp</Title>
+			<div class="flex-1 relative min-w-40 max-w-56">
+				<div class="sticky top-12 h-full p-3 flex flex-col max-h-[calc(100vh-3rem)] overflow-scroll">
+					<div class="overflow-scroll border-b border-mg1 mb-1">
+						{personas[0].spaceHosts
+							.filter((h) => !!h && h !== localApiHost)
+							.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+							.map((host) => {
+								return (
+									<A
+										href={`/spaces/${host}`}
+										class={`rounded h-14 fx transition hover:bg-mg1 pl-2 py-1 ${
+											host === spaceHost ? 'bg-mg1' : 'bg-bg1'
+										}`}
+									>
+										<DeterministicVisualId
+											input={fetchedSpaces[host]}
+											class="h-6 w-6 overflow-hidden rounded"
+										/>
+										<div class="flex-1 mx-2 truncate">
+											<p
+												class={`text-lg font-semibold leading-5 truncate ${
+													!fetchedSpaces[host]?.name && 'text-fg2'
+												}`}
+											>
+												{fetchedSpaces[host] ? fetchedSpaces[host].name || 'No name' : '...'}
+											</p>
+											<p class="font-mono text-fg2 leading-5 truncate">{host}</p>
+										</div>
+									</A>
+								);
+							})}
+					</div>
+					<A
+						href={'/spaces'}
+						class={`rounded h-10 fx transition hover:bg-mg1 px-2 py-1 ${!spaceHost && 'bg-mg1'}`}
+					>
+						<div class="h-6 w-6 xy">
+							{/* <div class="h-4 w-4 rounded-sm bg-fg1" /> */}
+							<Icon path={globeAlt} class="h-6 w-6" />
+						</div>
+						<p class="ml-1.5 text-lg font-semibold">Join space</p>
+					</A>
+				</div>
+			</div>
+			<div class="flex-1 space-y-3 p-3">
+				{fetchedSpace() ? (
+					fetchedSpace()!.fetchedSelf === null ? (
+						<div class="space-y-2">
+							<p class="text-2xl font-semibold">Unable to join {fetchedSpace()!.host}</p>
+							<Button
+								label="Try again"
+								onClick={async () => {
+									navigate('/spaces');
+									// TODO: make this and App.tsx simpler
+
+									// fetchedSpacesSet((old) => {
+									// 	delete old[spaceHost!];
+									// 	return { ...old };
+									// });
+
+									if (spaceHost) {
+										try {
+											const { id, name, frozen, walletAddress, writeDate, signature } = personas[0];
+											const { space } = await sendMessage<{ space: Omit<Space, 'host'> }>({
+												from: id,
+												to: buildUrl({ host: spaceHost, path: 'update-space-author' }),
+												signedAuthor: !id
+													? undefined
+													: {
+															id,
+															name,
+															frozen,
+															walletAddress,
+															writeDate,
+															signature,
+													  },
+											});
+											// console.log('space:', space);
+											if (!id) space.fetchedSelf = new Author({});
+											fetchedSpacesSet((old) => ({
+												...old,
+												[spaceHost]: { host: spaceHost, ...space },
+											}));
+										} catch (error) {
+											console.log('error:', error);
+											fetchedSpacesSet((old) => ({
+												...old,
+												[spaceHost]: {
+													host: spaceHost,
+													fetchedSelf: null,
+													tagTree: { parents: {}, loners: [] },
+												},
+											}));
+										}
+									}
+								}}
+							/>
+							<Button
+								label="Remove space"
+								onClick={() => {
+									navigate(`/spaces/${spaceHost}`);
+									personasSet((old) => {
+										old[0].spaceHosts.splice(
+											old[0].spaceHosts.findIndex((h) => h === spaceHost),
+											1,
+										);
+										return [...old];
+									});
+								}}
+							/>
+						</div>
+					) : (
+						<>
+							<div class="flex gap-3">
+								<DeterministicVisualId
+									input={fetchedSpace()}
+									class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg"
+								/>
+								<div>
+									<p class={`leading-7 font-bold text-2xl ${!fetchedSpace()?.name && 'text-fg2'} `}>
+										{fetchedSpace()?.name || 'No name'}
+									</p>
+									<p class="text-lg text-fg2 font-semibold break-all">{spaceHost}</p>
+								</div>
+							</div>
+							<p class="text-2xl font-semibold">Space info</p>
+							<LabelVal label="Downvote address" value={fetchedSpace()?.downvoteAddress} />
+							<div class="">
+								<p class="text-xl font-semibold text-fg2">Owner</p>
+								<NameTag id={fetchedSpace()?.owner?.id} name={fetchedSpace()?.owner?.name} />
+							</div>
+							<div class="">
+								<p class="text-2xl font-semibold">Self info</p>
+								<NameTag
+									id={fetchedSpace()?.fetchedSelf?.id}
+									name={fetchedSpace()?.fetchedSelf?.name}
+								/>
+							</div>
+							{fetchedSpace()?.fetchedSelf && fetchedSpace()?.fetchedSelf?.id && (
+								<>
+									<LabelVal
+										label="Add date"
+										value={formatTimestamp(fetchedSpace()?.fetchedSelf!.addDate!, false)}
+									/>
+									{/* {fetchedSpace()?.fetchedSelf.addedBy?.id && (
+										<div class="">
+											<p class="text-xl font-semibold text-fg2">Added by</p>
+											<NameTag
+												id={fetchedSpace()?.fetchedSelf.addedBy?.id}
+												name={fetchedSpace()?.fetchedSelf.addedBy?.name}
+											/>
+										</div>
+									)} */}
+									<LabelVal
+										label="Frozen"
+										value={fetchedSpace()!.fetchedSelf!.frozen ? 'True' : 'False'}
+									/>
+									<LabelVal
+										label="Wallet address"
+										value={fetchedSpace()!.fetchedSelf!.walletAddress}
+									/>
+								</>
+							)}
+							<p class="text-2xl font-semibold mb-1">Danger zone</p>
+							<Button
+								label="Leave space"
+								onClick={async () => {
+									if (personas[0].id) {
+										await sendMessage({
+											from: personas[0].id,
+											to: buildUrl({ host: spaceHost, path: 'leave-space' }),
+										});
+									}
+									personasSet((old) => {
+										old[0].spaceHosts.splice(
+											old[0].spaceHosts.findIndex((h) => h === spaceHost),
+											1,
+										);
+										return [...old];
+									});
+									fetchedSpacesSet((old) => {
+										delete old[spaceHost!];
+										return { ...old };
+									});
+									navigate('/spaces');
+								}}
+							/>
+						</>
+					)
+				) : (
+					!spaceHost && (
+						<>
+							<div class="">
+								<p class="font-bold text-2xl">Join a global space</p>
+								<p class="font-semibold text-xl text-fg2">
+									A global space is an online thought repository that users can contribute to
+								</p>
+							</div>
+							{personas[0].frozen ? (
+								<p class="font-semibold text-fg2 text-xl">Persona frozen</p>
+							) : (
+								<>
+									<TextInput
+										required
+										autofocus
+										showCheckX={false}
+										defaultValue={hostedLocally ? 'localhost:8080' : ''}
+										ref={(t) => (hostIpt = t)}
+										label="Host"
+										onSubmit={joinSpace}
+									/>
+									<Button label="Join space" onClick={joinSpace} />
+									{/* <A
+										target="_blank"
+										class="inline-block font-semibold leading-4 text-fg2 transition hover:text-fg1"
+										href="TODO"
+									>
+										Create a new space
+									</A> */}
+								</>
+							)}
+						</>
+					)
+				)}
+			</div>
+		</div>
+	);
+}
+
+function NameTag({ id, name }: { id?: string; name?: string }) {
+	return id === '' ? (
+		<p class="text-xl text-fg2 font-semibold leading-5">Anon</p>
+	) : (
+		<div class="flex gap-3 mt-1">
+			<DeterministicVisualId
+				input={id}
+				class="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full"
+			/>
+			<div>
+				<p class={`leading-5 font-bold text-xl ${!name && 'text-fg2'} `}>{name || 'No name'}</p>
+				<p class="text-lg text-fg2 font-semibold break-all">{id}</p>
+			</div>
+		</div>
+	);
+}

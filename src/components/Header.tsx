@@ -9,6 +9,7 @@ import {
 	tag,
 	userGroup,
 	cog,
+	bars_3,
 } from 'solid-heroicons/solid';
 import { matchSorter } from 'match-sorter';
 import { hostedLocally, localApiHost, makeUrl, ping } from '../utils/api';
@@ -30,13 +31,20 @@ import {
 	tagMapOpenSet,
 	tagTree,
 } from '../utils/state';
-import { bracketRegex, getNodes, getNodesArr, getTags } from '../utils/tags';
+import {
+	bracketRegex,
+	getTagRelations,
+	listAllTags,
+	getTags,
+	sortKeysByNodeCount,
+} from '../utils/tags';
 import DeterministicVisualId from './DeterministicVisualId';
 import { passwords, Persona } from '../types/PersonasPolyfill';
 import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
 import { decrypt } from '~/utils/security';
 import { validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
+import { modes } from './Results';
 
 const setGlobalCssVariable = (variableName: string, value: string) => {
 	document.documentElement.style.setProperty(`--${variableName}`, value);
@@ -64,9 +72,9 @@ let scrollingDown = true;
 // });
 
 export default function Header() {
-	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
-	const searchedKeywords = searchParams.q || '';
+	const location = useLocation();
+	const navigate = useNavigate();
 	let searchIpt: undefined | HTMLInputElement;
 	let searchBtn: undefined | HTMLButtonElement;
 	let spaceBtn: undefined | HTMLButtonElement;
@@ -75,53 +83,49 @@ export default function Header() {
 	const [suggestTags, suggestTagsSet] = createSignal(false);
 	const [switchingSpaces, switchingSpacesSet] = createSignal(false);
 	const [switchingPersonas, switchingPersonasSet] = createSignal(false);
-	const [searchText, searchTextSet] = createSignal('');
-	const [tagIndex, tagIndexSet] = createSignal<number>(-1);
-	const tags = createMemo(() => getTags(searchText()));
+	const [searchedText, searchedTextSet] = createSignal(searchParams.q?.toString() || '');
+	const [tagIndex, tagIndexSet] = createSignal<number>(0);
+	const addedTags = createMemo(() => getTags(searchedText()));
 	const tagFilter = createMemo(() =>
-		searchText().trim().replace(bracketRegex, '').replace(/\s\s+/g, ' ').trim(),
+		searchedText().trim().replace(bracketRegex, '').replace(/\s\s+/g, ' ').trim(),
 	);
-	const nodesArr = createMemo(() => tagTree && getNodesArr(getNodes(tagTree)));
+
+	const trimmedFilter = createMemo(() => tagFilter().trim());
+	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
 	const suggestedTags = createMemo(() => {
-		if (!nodesArr || !suggestTags) return [];
-		let arr = matchSorter(nodesArr() || [], tagFilter());
-		!tagFilter().trim() && arr.unshift(...lastUsedTags);
-		arr = [...new Set(arr)].filter((tag) => !tags().includes(tag));
-		return arr;
+		if (!suggestTags()) return [];
+		const addedTagsSet = new Set(addedTags());
+		if (!trimmedFilter()) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
+		const filter = trimmedFilter().replace(/\s+/g, '');
+		let arr = matchSorter(allTags(), filter).concat(trimmedFilter());
+		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
 
-	const location = useLocation();
 	createEffect(() => {
-		if (!searchedKeywords && location.pathname.startsWith('/@')) {
-			const nextSlashIndex = location.pathname.indexOf('/', 1);
-			searchTextSet(location.pathname.slice(1, nextSlashIndex === -1 ? undefined : nextSlashIndex));
-		} else {
-			searchTextSet((searchedKeywords + ' ').trimStart());
-		}
-		window.scrollTo(0, 0);
+		searchedTextSet(searchParams.q?.toString() || '');
 	});
 
-	useKeyPress(
-		'/',
-		() => {
-			const activeElement = document.activeElement!;
-			if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
-				setTimeout(() => searchIpt?.focus(), 0); // setTimeout prevents inputting '/' on focus
-			}
-		},
-		[],
-	);
+	useKeyPress('/', () => {
+		const activeElement = document.activeElement!;
+		if (activeElement.tagName !== 'INPUT' && activeElement.tagName !== 'TEXTAREA') {
+			setTimeout(() => searchIpt?.focus(), 0); // setTimeout prevents inputting '/' on focus
+		}
+	});
 
 	const searchInput = (newTab = false) => {
-		const q = searchText().trim();
+		const q = encodeURIComponent(searchedText().trim())
+			.replace(/%40/g, '@')
+			.replace(/%5B/g, '[')
+			.replace(/%5D/g, ']');
+
 		if (q) {
-			const queryString = new URLSearchParams({ q }).toString();
 			searchIpt?.blur();
 			setTimeout(() => {
 				if (newTab) {
-					window.open(`/?${queryString}`, '_blank');
+					window.open(`/?q=${q}`, '_blank');
 				} else {
-					navigate(`/?${queryString}`);
+					navigate(`/?q=${q}`);
 				}
 			}, 0);
 			// setTimeout prevents search from adding new line to contentTextarea on enter
@@ -131,14 +135,14 @@ export default function Header() {
 	const addTagToSearchInput = (tag: string) => {
 		tagIndexSet(-1);
 		lastUsedTagsSet([tag, ...lastUsedTags]);
-		searchTextSet(
-			`${searchText()
+		searchedTextSet(
+			`${searchedText()
 				.replace(/\s\s+/g, ' ')
 				.trim()
-				.replace(new RegExp(tagFilter + '$'), '')
-				.trim()} [${tag}] `.trimStart(),
+				.replace(new RegExp(tagFilter() + '$'), '')
+				.trim()}[${tag}] `.trimStart(),
 		);
-		setTimeout(() => searchIpt?.scrollTo({ left: Number.MAX_SAFE_INTEGER }), 0);
+		setTimeout(() => searchIpt!.scrollTo({ left: Number.MAX_SAFE_INTEGER }), 0);
 	};
 
 	const onSwitchingBlur = () => {
@@ -155,26 +159,32 @@ export default function Header() {
 			<div class="h-12" />
 			{personas && (
 				<header
-					class="z-50 fixed top-0 w-full px-2 sm:px-3 flex justify-between py-1 h-12 transition-opacity bg-bg1"
+					class="z-50 fixed top-0 w-full px-2 sm:px-3 fx justify-between h-12 transition-opacity bg-bg1"
 					// Not sure how I feel about this especially now
 					// that the tag map is there
 					// style={{ opacity: 'var(--header-opacity)' }}
 					onMouseMove={() => setGlobalCssVariable('header-opacity', '1')}
 				>
+					<button
+						class="md:hidden xy -ml-2 mr-2 h-full w-10 text-fg2 transition hover:text-fg1"
+						onClick={() => tagMapOpenSet(!tagMapOpen())}
+					>
+						<Icon path={bars_3} class="h-7 w-7" />
+					</button>
 					<a href="/" class="fx shrink-0">
 						<img
 							src={'/mindapp-logo.svg'}
 							alt="logo"
-							class={`h-7 ${hostedLocally && rootSettings.testWorkingDirectory && 'grayscale'}`}
+							class={`h-6 ${hostedLocally && rootSettings.testWorkingDirectory && 'grayscale'}`}
 						/>
-						<p class="ml-2 text-2xl font-black hidden sm:block">Mindapp</p>
+						<p class="ml-2 text-xl font-black hidden sm:block">Mindapp</p>
 					</a>
-					<div class="relative mx-2 w-full max-w-3xl">
+					<div class="ml-3 md:ml-5 h-full flex-1 max-w-3xl relative">
 						<div class="flex h-full">
 							<input
 								ref={searchIpt}
-								value={searchText()}
-								class="w-full pr-12 h-full text-lg px-2 rounded border-2 transition border-mg1 hover:border-mg2 focus:border-mg2"
+								value={searchedText()}
+								class="w-full pr-12 text-lg px-2 rounded border-2 transition border-mg1 hover:border-mg2 focus:border-mg2 my-1"
 								placeholder="Search"
 								onFocus={() => {
 									suggestTagsSet(true);
@@ -183,14 +193,16 @@ export default function Header() {
 								onBlur={() => {
 									document.activeElement !== searchBtn && suggestTagsSet(false);
 								}}
-								onChange={(e) => {
+								onInput={(e) => {
 									suggestTagsSet(true);
-									tagIndexSet(-1);
-									searchTextSet(e.target.value);
+									tagIndexSet(addedTags().length ? -1 : 0);
+									searchedTextSet(e.target.value);
 								}}
 								onKeyDown={(e) => {
-									e.key === 'Escape' && (suggestTags() ? suggestTagsSet(false) : searchIpt?.blur());
-									e.key === 'Tab' && !e.shiftKey && suggestTagsSet(false);
+									if (e.key === 'Escape') {
+										suggestTagsSet(false);
+										searchIpt?.blur();
+									}
 									if (e.key === 'Enter') {
 										if (suggestedTags()[tagIndex()]) {
 											addTagToSearchInput(suggestedTags()[tagIndex()]);
@@ -219,7 +231,7 @@ export default function Header() {
 							</button>
 						</div>
 						{suggestTags() && (
-							<div class="z-20 flex flex-col overflow-scroll rounded mt-0.5 absolute w-full max-h-56 shadow">
+							<div class="z-20 flex flex-col overflow-scroll rounded absolute w-full max-h-56 shadow">
 								{suggestedTags().map((tag, i) => {
 									return (
 										<button
@@ -238,18 +250,11 @@ export default function Header() {
 						)}
 					</div>
 					<div class="fx">
-						{/* {hostedLocally ? (
-						<a href="/tags" class="xy w-10 text-fg2 transition hover:text-fg1">
-							<Tag class="h-7 w-7" />
-						</a>
-					) : (
-					)} */}
-						<button
-							class="md:invisible xy w-10 text-fg2 transition hover:text-fg1"
-							onClick={() => tagMapOpenSet(!tagMapOpen())}
-						>
-							<Icon path={tag} class="h-7 w-7" />
-						</button>
+						{hostedLocally && (
+							<a href="/tags" class="xy w-10 text-fg2 transition hover:text-fg1">
+								<Icon path={tag} class="h-7 w-7" />
+							</a>
+						)}
 						<a href="/settings" class="xy w-10 text-fg2 transition hover:text-fg1">
 							<Icon path={cog} class="h-7 w-7" />
 						</a>
@@ -380,9 +385,7 @@ export default function Header() {
 													<a
 														class="xy w-8 group relative"
 														aria-disabled={!thingKey}
-														href={`/manage-${
-															switchingSpaces() ? 'spaces' : 'personas'
-														}/${thingKey}`}
+														href={`/${switchingSpaces() ? 'spaces' : 'personas'}/${thingKey}`}
 														onMouseDown={(e) => e.preventDefault()}
 														onClick={() => {
 															switchingSpacesSet(false);
@@ -407,7 +410,7 @@ export default function Header() {
 									})}
 								</div>
 								<a
-									href={switchingSpaces() ? '/manage-spaces' : '/manage-personas'}
+									href={switchingSpaces() ? '/spaces' : '/personas'}
 									class="border-t border-mg2 h-10 fx transition hover:bg-mg2 px-2 py-1"
 									onMouseDown={(e) => e.preventDefault()}
 									onClick={() => {

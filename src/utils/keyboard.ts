@@ -9,7 +9,6 @@ export function useKeyPress(
 				allowRepeats?: boolean;
 		  },
 	callback: (e: KeyboardEvent) => void,
-	dependencies: any[],
 ) {
 	createEffect(() => {
 		const {

@@ -1,11 +1,11 @@
 import InputAutoWidth from '../components/InputAutoWidth';
-import { RecursiveTag, getNodes, getNodesArr } from '../utils/tags';
+import { RecursiveTag, getTagRelations, listAllTags } from '../utils/tags';
 import { matchSorter } from 'match-sorter';
 import { A } from '@solidjs/router';
 import { createEffect, createMemo, createSignal, JSX } from 'solid-js';
 import { lastUsedTags, lastUsedTagsSet, tagTree } from '~/utils/state';
 import { Icon } from 'solid-heroicons';
-import { arrowTopRightOnSquare, link, trash, xMark } from 'solid-heroicons/solid';
+import { arrowTopRightOnSquare, link, trash, xMark } from 'solid-heroicons/solid-mini';
 
 const TagEditor = (props: {
 	// _ref?: ((r: HTMLInputElement | null) => void) | React.MutableRefObject<HTMLInputElement | null>;
@@ -47,7 +47,7 @@ const TagEditor = (props: {
 	let addingIpt: null | HTMLInputElement = null;
 	let tagSuggestionsRefs: (null | HTMLButtonElement)[] = [];
 
-	const nodesArr = createMemo(() => (tagTree ? getNodesArr(getNodes(tagTree)) : null));
+	const nodesArr = createMemo(() => (tagTree ? listAllTags(getTagRelations(tagTree)) : null));
 	const trimmedFilter = createMemo(() => tagFilter().trim());
 	const suggestedTags = createMemo(() => {
 		if (!nodesArr() || !suggestTags()) return [];
@@ -144,7 +144,7 @@ const TagEditor = (props: {
 							class="xy h-8 w-8 group"
 							ref={(r) => (tagLnk = r)}
 							onBlur={onEditingBlur}
-							href={`/tags/${recTag.label}`}
+							href={`/tags/${encodeURIComponent(recTag.label)}`}
 							onClick={(e) => onLinkClick(recTag.label, e)}
 						>
 							<Icon
@@ -199,7 +199,7 @@ const TagEditor = (props: {
 							onClick={() => suggestTagsSet(true)}
 							onFocus={() => suggestTagsSet(true)}
 							value={tagFilter()}
-							onChange={(e) => {
+							onInput={(e) => {
 								tagSuggestionsRefs[0]?.focus();
 								addingIpt?.focus();
 								tagIndexSet(0);

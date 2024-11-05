@@ -1,7 +1,7 @@
 import { createMemo, createSignal } from 'solid-js';
 import InputAutoWidth from './InputAutoWidth';
 import { Icon } from 'solid-heroicons';
-import { check, eye, eyeSlash, xMark } from 'solid-heroicons/solid';
+import { check, eye, eyeSlash, xMark } from 'solid-heroicons/solid-mini';
 
 export type TextInputRefObject = {
 	tag: HTMLElement | null;
@@ -27,7 +27,7 @@ const normalizeNumericInput = (str: string, decimals: number, removeInsignifican
 
 export default function TextInput(props: {
 	label: string;
-	_ref?: TextInputRefObject;
+	ref?: (t: HTMLInputElement) => void;
 	defaultValue?: string;
 	containerClass?: string;
 	autofocus?: boolean;
@@ -45,7 +45,7 @@ export default function TextInput(props: {
 	showCheckX?: boolean;
 }) {
 	const {
-		_ref,
+		ref,
 		containerClass,
 		autofocus,
 		numeric,
@@ -128,7 +128,7 @@ export default function TextInput(props: {
 						}
 						keyUp = false;
 					}}
-					onChange={({ target: { value } }) => {
+					onInput={({ target: { value } }) => {
 						if (disabled) {
 							return;
 						}
@@ -142,17 +142,17 @@ export default function TextInput(props: {
 					}}
 					ref={(tag) => {
 						ipt = tag;
-						if (_ref) {
-							_ref.tag = tag;
-							Object.defineProperty(_ref, 'error', {
+						if (ref) {
+							ref(tag);
+							Object.defineProperty(ref, 'error', {
 								get: () => error,
 								set: (v) => errorSet(v),
 							});
-							Object.defineProperty(_ref, 'value', {
+							Object.defineProperty(ref, 'value', {
 								get: () => internalValue,
 								set: internalValueSet,
 							});
-							Object.defineProperty(_ref, 'isValid', {
+							Object.defineProperty(ref, 'isValid', {
 								get() {
 									const { value } = ipt!;
 									const trimmedValue = value.trim();

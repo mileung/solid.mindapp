@@ -1,19 +1,14 @@
-import { Title } from "@solidjs/meta";
-import { HttpStatusCode } from "@solidjs/start";
+import { Title } from '@solidjs/meta';
+import { HttpStatusCode } from '@solidjs/start';
 
 export default function NotFound() {
-  return (
-    <main>
-      <Title>Not Found</Title>
-      <HttpStatusCode code={404} />
-      <h1>Page Not Found</h1>
-      <p>
-        Visit{" "}
-        <a href="https://start.solidjs.com" target="_blank">
-          start.solidjs.com
-        </a>{" "}
-        to learn how to build SolidStart apps.
-      </p>
-    </main>
-  );
+	return (
+		<div>
+			<Title>Page Not Found | Mindapp</Title>
+			<HttpStatusCode code={404} />
+			<div class="xy h-32">
+				<p class="text-2xl font-medium">Page Not Found</p>
+			</div>
+		</div>
+	);
 }

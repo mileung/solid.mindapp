@@ -17,13 +17,19 @@ import {
 	tagTree,
 	tagTreeSet,
 } from '~/utils/state';
-import { getNodes, getNodesArr, sortUniArr, TagTree } from '~/utils/tags';
+import {
+	getTagRelations,
+	listAllTags,
+	sortKeysByNodeCount,
+	sortUniArr,
+	TagTree,
+} from '~/utils/tags';
 import TextareaAutoHeight from './TextareaAutoHeight';
 import { Icon } from 'solid-heroicons';
-import { plus, userPlus, xCircle } from 'solid-heroicons/solid';
+import { plus, userPlus, xCircle } from 'solid-heroicons/solid-mini';
+import { getSignature, sendMessage } from '~/utils/signing';
 
 export const ThoughtWriter = (props: {
-	parentRef?: HTMLTextAreaElement;
 	initialContent?: Thought['content'];
 	initialTags?: string[];
 	editId?: string;
@@ -39,15 +45,7 @@ export const ThoughtWriter = (props: {
 	) => void;
 	onContentBlur?: () => void;
 }) => {
-	const {
-		parentRef,
-		initialContent,
-		initialTags = [],
-		editId,
-		parentId,
-		onWrite,
-		onContentBlur,
-	} = props;
+	const { initialContent, initialTags = [], editId, parentId, onWrite, onContentBlur } = props;
 	const [searchParams] = useSearchParams();
 	const jsonString = searchParams.json?.toString();
 	const jsonParam = createMemo(() =>
@@ -57,27 +55,31 @@ export const ThoughtWriter = (props: {
 	);
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
-	const [tags, tagsSet] = createSignal<string[]>([
+	const [addedTags, addedTagsSet] = createSignal<string[]>([
 		...initialTags,
 		...(jsonParam()?.initialTags || []),
 	]);
 	const [tagFilter, tagFilterSet] = createSignal('');
 	const [tagIndex, tagIndexSet] = createSignal(0);
 	const [suggestTags, suggestTagsSet] = createSignal(false);
-	let contentTextArea: undefined | HTMLTextAreaElement = parentRef;
+	let contentTextArea: undefined | HTMLTextAreaElement;
 	let tagStuffDiv: undefined | HTMLDivElement;
 	let tagIpt: undefined | HTMLInputElement;
 	let tagXs: (null | HTMLButtonElement)[] = [];
 	const tagSuggestionsRefs: (null | HTMLButtonElement)[] = [];
-	const nodesArr = createMemo(() => tagTree && getNodesArr(getNodes(tagTree)));
+
 	const trimmedFilter = createMemo(() => tagFilter().trim());
-	const [suggestedTags, suggestedTagsSet] = createStore(() => {
-		if (!nodesArr || !suggestTags) return [];
-		let arr = matchSorter(nodesArr(), tagFilter());
-		trimmedFilter ? arr.push(trimmedFilter()) : arr.unshift(...lastUsedTags);
-		arr = [...new Set(arr)].filter((tag) => !tags().includes(tag));
-		return arr;
+	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
+	const suggestedTags = createMemo(() => {
+		if (!suggestTags()) return [];
+		const addedTagsSet = new Set(addedTags());
+		if (!trimmedFilter()) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
+		const filter = trimmedFilter().replace(/\s+/g, '');
+		let arr = matchSorter(allTags(), filter).concat(trimmedFilter());
+		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
+
 	const defaultValue = createMemo(() => {
 		const initialStuff = initialContent || jsonParam()?.initialContent || '';
 		return isStringifiedRecord(initialStuff)
@@ -91,7 +93,7 @@ export const ThoughtWriter = (props: {
 	const addTag = (tagToAdd?: string) => {
 		tagToAdd = tagToAdd || suggestedTags()[tagIndex()] || trimmedFilter();
 		if (!tagToAdd) return;
-		tagsSet([...new Set([...tags(), tagToAdd])]);
+		addedTagsSet([...new Set([...addedTags(), tagToAdd])]);
 		tagIpt!.focus();
 		lastUsedTagsSet([...new Set([tagToAdd, ...lastUsedTags])].slice(0, 5));
 		tagFilterSet('');
@@ -99,13 +101,11 @@ export const ThoughtWriter = (props: {
 	};
 
 	const writeThought = async (ctrlKey?: boolean, altKey?: boolean) => {
-		const content = contentTextArea!.value;
+		const content = contentTextArea!.value.trim();
 		if (!content) return;
 		jsonString && navigate(pathname, { replace: true });
 		contentTextArea!.style.height = 'auto';
 		const additionalTag = ((suggestTags() && suggestedTags()[tagIndex()]) || tagFilter()).trim();
-		const trimmedContent = content.trim();
-
 		let [createDate, authorId, spaceHost] = (editId || '').split('_', 3);
 		const message = {
 			from: editId ? authorId : personas[0].id,
@@ -115,9 +115,9 @@ export const ThoughtWriter = (props: {
 			}),
 			thought: {
 				parentId: parentId || undefined,
-				content: trimmedContent,
+				content,
 				tags: (() => {
-					const arr = sortUniArr([...tags(), additionalTag].filter((a) => !!a));
+					const arr = sortUniArr([...addedTags(), additionalTag].filter((a) => !!a));
 					return arr.length ? arr : undefined;
 				})(),
 				...(editId
@@ -135,25 +135,25 @@ export const ThoughtWriter = (props: {
 		};
 
 		if (!message.thought.tags?.length) delete message.thought.tags;
-		// message.thought.signature = await getSignature(message.thought, message.thought.authorId);
+		message.thought.signature = await getSignature(message.thought, message.thought.authorId);
 
-		// await sendMessage<{
-		// 	authors: Record<string, SignedAuthor>;
-		// 	mentionedThoughts: Record<string, Thought>;
-		// 	thought: Thought;
-		// }>(message)
-		// 	.then((res) => {
-		// 		// console.log('res:', res);
-		// 		authorsSet((old) => ({ ...old, ...res.authors }));
-		// 		mentionedThoughtsSet((old) => ({ ...old, ...res.mentionedThoughts }));
-		// 		onWrite && onWrite(res, !!ctrlKey, !!altKey);
-		// 		contentTextArea!.value = '';
-		// 		tagsSet([]);
-		// 		tagFilterSet('');
-		// 		suggestTagsSet(false);
-		// 		contentTextArea!.focus();
-		// 	})
-		// 	.catch((err) => alert(err));
+		await sendMessage<{
+			authors: Record<string, SignedAuthor>;
+			mentionedThoughts: Record<string, Thought>;
+			thought: Thought;
+		}>(message)
+			.then((res) => {
+				// console.log('res:', res);
+				authorsSet((old) => ({ ...old, ...res.authors }));
+				mentionedThoughtsSet((old) => ({ ...old, ...res.mentionedThoughts }));
+				onWrite && onWrite(res, !!ctrlKey, !!altKey);
+				contentTextArea!.value = '';
+				addedTagsSet([]);
+				tagFilterSet('');
+				suggestTagsSet(false);
+				contentTextArea!.focus();
+			})
+			.catch((err) => alert(err));
 
 		if (hostedLocally) {
 			ping(
@@ -172,34 +172,26 @@ export const ThoughtWriter = (props: {
 		}
 	};
 
-	useKeyPress(
-		{ key: 'Enter', modifiers: ['Meta', 'Alt', 'Control'] },
-		(e) => {
-			const focusedOnThoughtWriter =
-				document.activeElement === contentTextArea ||
-				document.activeElement === tagIpt ||
-				tagXs.find((e) => e === document.activeElement);
-			if (focusedOnThoughtWriter) {
-				writeThought(e.ctrlKey, e.altKey);
-			}
-		},
-		[suggestedTags, writeThought],
-	);
+	useKeyPress({ key: 'Enter', modifiers: ['Meta', 'Alt', 'Control'] }, (e) => {
+		const focusedOnThoughtWriter =
+			document.activeElement === contentTextArea ||
+			document.activeElement === tagIpt ||
+			tagXs.find((e) => e === document.activeElement);
+		if (focusedOnThoughtWriter) {
+			writeThought(e.ctrlKey, e.altKey);
+		}
+	});
 
-	useKeyPress(
-		{ key: 'ArrowDown' },
-		(e) => {
-			// TODO: move focus to first thought
-			// Make the ux similar to using VS Code and Markdown
-		},
-		[suggestedTags, writeThought],
-	);
+	useKeyPress({ key: 'ArrowDown' }, (e) => {
+		// TODO: move focus to first thought
+		// Make the ux similar to using VS Code and Markdown
+	});
 
 	return (
 		<div class="w-full flex flex-col">
 			<TextareaAutoHeight
-				autofocus
-				// defaultValue={defaultValue}
+				// autofocus
+				defaultValue={defaultValue()}
 				ref={contentTextArea}
 				onFocus={(e) => {
 					// focuses on the end of the input value when editing
@@ -211,27 +203,27 @@ export const ThoughtWriter = (props: {
 				placeholder="New thought"
 				class="rounded text-xl font-thin font-mono px-3 py-2 w-full max-w-full resize-y min-h-36 bg-mg1 transition brightness-[0.97] dark:brightness-75 focus:brightness-100 focus:dark:brightness-100"
 				onKeyDown={(e) => {
-					// if (e.key === 'Escape') {
-					// 	const ok =
-					// 		onContentBlur &&
-					// 		(contentTextArea?.value === defaultValue ||
-					// 			confirm(`You are about to discard this draft`));
-					// 	if (ok) {
-					// 		contentTextArea?.blur();
-					// 		onContentBlur && onContentBlur();
-					// 	}
-					// }
+					if (e.key === 'Escape') {
+						const ok =
+							onContentBlur &&
+							(contentTextArea!.value === defaultValue() ||
+								confirm(`You are about to discard this draft`));
+						if (ok) {
+							contentTextArea!.blur();
+							onContentBlur && onContentBlur();
+						}
+					}
 				}}
 			/>
 			<div class="mt-1 relative">
-				{!!tags.length && (
+				{!!addedTags().length && (
 					<div
 						tabIndex={-1}
 						ref={tagStuffDiv}
 						class="mb-0.5 fx flex-wrap px-3 py-1 gap-1 rounded-t bg-bg2 text-lg"
 						onClick={() => tagIpt!.focus()}
 					>
-						{tags().map((name, i) => (
+						{addedTags().map((name, i) => (
 							// The  is needed to avoid some bug
 							// without it, the app crashes under certain conditions I cannot fully explain
 							// For example, remove the Fragment and put the key back in with the div. Then go to any uil. Then use alt + m to open the mindapp extension. Then with just your keyboard, add the tags "Tech Industry", then "Web Development". Then click the X on "Tech Industry". The client crashes with:
@@ -245,9 +237,9 @@ export const ThoughtWriter = (props: {
 										ref={(r) => (tagXs[i] = r)}
 										onClick={(e) => {
 											e.stopPropagation(); // this is needed to focus the next tag
-											const newTags = [...tags()];
+											const newTags = [...addedTags()];
 											newTags.splice(i, 1);
-											tagsSet(newTags);
+											addedTagsSet(newTags);
 											!newTags.length || (i === newTags.length && !e.shiftKey)
 												? tagIpt?.focus()
 												: tagXs[i - (e.shiftKey ? 1 : 0)]?.focus();
@@ -276,25 +268,27 @@ export const ThoughtWriter = (props: {
 				<input
 					autocomplete="off"
 					class={`px-3 py-1 text-xl bg-mg1 w-full overflow-hidden transition brightness-[0.97] dark:brightness-75 focus:brightness-100 focus:dark:brightness-100 ${
-						tags.length ? '' : 'rounded-t'
+						addedTags().length ? '' : 'rounded-t'
 					} ${suggestTags() ? '' : 'rounded-b'}`}
 					placeholder="Search tags"
 					ref={tagIpt}
 					onClick={() => suggestTagsSet(true)}
 					onFocus={() => suggestTagsSet(true)}
 					value={tagFilter()}
-					onChange={(e) => {
+					onInput={(e) => {
 						tagSuggestionsRefs[0]?.focus();
 						tagIpt?.focus();
-						tagIndexSet(!e.target.value.length && tags.length ? -1 : 0);
+						tagIndexSet(!e.target.value.length && addedTags().length ? -1 : 0);
 						suggestTagsSet(true);
 						tagFilterSet(e.target.value);
 					}}
 					onKeyDown={(e) => {
 						e.key === 'Enter' && !(e.metaKey || e.altKey || e.ctrlKey) && addTag();
 						e.key === 'Tab' && suggestTagsSet(false);
-						e.key === 'Escape' &&
-							(suggestTags() ? suggestTagsSet(false) : contentTextArea?.focus());
+						if (e.key === 'Escape') {
+							suggestTagsSet(false);
+							contentTextArea!.focus();
+						}
 						if (e.key === 'ArrowUp') {
 							e.preventDefault();
 							const index = Math.max(tagIndex() - 1, -1);
@@ -304,7 +298,7 @@ export const ThoughtWriter = (props: {
 						}
 						if (e.key === 'ArrowDown') {
 							e.preventDefault();
-							const index = Math.min(tagIndex() + 1, suggestedTags!.length - 1);
+							const index = Math.min(tagIndex() + 1, suggestedTags()!.length - 1);
 							tagSuggestionsRefs[index]?.focus();
 							tagIpt?.focus();
 							tagIndexSet(index);
@@ -315,6 +309,7 @@ export const ThoughtWriter = (props: {
 							if (
 								document.activeElement !== tagStuffDiv &&
 								document.activeElement !== tagIpt &&
+								!tagXs.find((e) => e === document.activeElement) &&
 								!tagSuggestionsRefs.find((e) => e === document.activeElement)
 							) {
 								tagIndexSet(0);

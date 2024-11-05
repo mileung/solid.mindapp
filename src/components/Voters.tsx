@@ -1,6 +1,6 @@
 import { A } from '@solidjs/router';
 import { Icon } from 'solid-heroicons';
-import { chevronDoubleDown, chevronDoubleUp } from 'solid-heroicons/solid';
+import { chevronDoubleDown, chevronDoubleUp } from 'solid-heroicons/solid-mini';
 import { createEffect, createSignal } from 'solid-js';
 import { activeSpace, authors } from '~/utils/state';
 import { Vote } from '../types/Vote';

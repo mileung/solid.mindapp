@@ -12,13 +12,13 @@ import {
 	authorsSet,
 	fetchedSpaces,
 	fetchedSpacesSet,
+	getLocalState,
 	localState,
 	localStateSet,
 	personas,
 	rootSettingsSet,
 	tagTreeSet,
 	updateLocalState,
-	workingDirectorySet,
 } from './utils/state';
 import { buildUrl, hostedLocally, makeUrl, ping, post } from './utils/api';
 import { TagTree } from './utils/tags';
@@ -28,6 +28,7 @@ import { setTheme } from '~/utils/theme';
 import { RootSettings, Space, WorkingDirectory } from './utils/settings';
 import { hashItem } from './utils/security';
 import { Author } from './types/Author';
+import { isServer } from 'solid-js/web';
 
 export default function App() {
 	// const prefersDark = usePrefersDark();
@@ -94,55 +95,56 @@ export default function App() {
 	// 	// 	.catch((err) => console.error(err));
 	// });
 
-	// createEffect(() => {
-	// 	const { host } = activeSpace;
-	// 	const savedTagTree = fetchedSpaces[host]?.tagTree;
-	// 	savedTagTree && tagTreeSet(savedTagTree);
-	// 	if (!host) {
-	// 		hostedLocally &&
-	// 			ping<TagTree>(makeUrl('get-tag-tree'))
-	// 				.then((data) => {
-	// 					tagTreeSet(data);
-	// 				})
-	// 				.catch((err) => console.error(err));
-	// 	} else {
-	// 		const { id, name, frozen, walletAddress, writeDate, signature } = personas[0];
-	// 		const tagTreeHash = savedTagTree && hashItem(savedTagTree);
-	// 		sendMessage<{ space: Omit<Space, 'host'> }>({
-	// 			from: id,
-	// 			to: buildUrl({ host, path: 'update-space-author' }),
-	// 			tagTreeHash,
-	// 			signedAuthor: !id
-	// 				? undefined
-	// 				: {
-	// 						id,
-	// 						name,
-	// 						frozen,
-	// 						walletAddress,
-	// 						writeDate,
-	// 						signature,
-	// 				  },
-	// 		})
-	// 			.then(({ space }) => {
-	// 				if (!id) space.fetchedSelf = new Author({});
-	// 				fetchedSpacesSet((old) => ({
-	// 					...old,
-	// 					[host]: {
-	// 						...old[host],
-	// 						...space,
-	// 						host,
-	// 					},
-	// 				}));
-	// 				space.tagTree && tagTreeSet(space.tagTree);
-	// 			})
-	// 			.catch((err) => {
-	// 				fetchedSpacesSet((old) => ({
-	// 					...old,
-	// 					[host]: { ...old[host], fetchedSelf: null },
-	// 				}));
-	// 			});
-	// 	}
-	// }, [activeSpace.host, personas[0].id]);
+	createEffect(() => {
+		const { host } = activeSpace;
+		const savedTagTree = fetchedSpaces[host]?.tagTree;
+		savedTagTree && tagTreeSet(savedTagTree);
+		if (!host) {
+			hostedLocally &&
+				ping<TagTree>(makeUrl('get-tag-tree'))
+					.then((data) => {
+						// console.log('data:', data);
+						tagTreeSet(data);
+					})
+					.catch((err) => console.error(err));
+		} else {
+			const { id, name, frozen, walletAddress, writeDate, signature } = personas[0];
+			const tagTreeHash = savedTagTree && hashItem(savedTagTree);
+			sendMessage<{ space: Omit<Space, 'host'> }>({
+				from: id,
+				to: buildUrl({ host, path: 'update-space-author' }),
+				tagTreeHash,
+				signedAuthor: !id
+					? undefined
+					: {
+							id,
+							name,
+							frozen,
+							walletAddress,
+							writeDate,
+							signature,
+					  },
+			})
+				.then(({ space }) => {
+					if (!id) space.fetchedSelf = new Author({});
+					fetchedSpacesSet((old) => ({
+						...old,
+						[host]: {
+							...old[host],
+							...space,
+							host,
+						},
+					}));
+					space.tagTree && tagTreeSet(space.tagTree);
+				})
+				.catch((err) => {
+					fetchedSpacesSet((old) => ({
+						...old,
+						[host]: { ...old[host], fetchedSelf: null },
+					}));
+				});
+		}
+	});
 
 	// createEffect(() => {
 	// 	authorsSet((old) => {
