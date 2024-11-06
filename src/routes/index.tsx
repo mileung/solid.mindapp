@@ -41,7 +41,7 @@ export default function Home() {
 	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
 	const filteredTags = createMemo(() => {
 		const filter = tagFilter().trim().replace(/\s+/g, '');
-		return !filter ? null : allTags() && matchSorter(allTags(), filter).slice(0, 200);
+		return !filter ? defaultTags() : allTags() && matchSorter(allTags(), filter).slice(0, 99);
 	});
 	const focusedTag = createMemo(() => searchedTags().length === 1 && searchedTags()[0]);
 	const parentsMap = createMemo(() => tagTree && getParentsMap(tagTree));
@@ -108,7 +108,7 @@ export default function Home() {
 						</div>
 					) : (
 						<div class="fx flex-wrap gap-1 bg-bg2">
-							{[...(filteredTags() || defaultTags())].map((name) => {
+							{filteredTags().map((name) => {
 								// if (name.startsWith('YouTube@') || name.startsWith('Twitter@')) return null;
 								return (
 									<A

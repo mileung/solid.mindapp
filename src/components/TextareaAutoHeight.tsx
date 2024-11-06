@@ -23,12 +23,6 @@ const TextareaAutoHeight = (
 				internalRef = ref;
 				ref.value = props.defaultValue || '';
 				setTimeout(() => ref.focus(), 0); // Not sure why I need this to autofocus but I do
-
-				// if (typeof parentRef === 'function') {
-				// 	parentRef(ref);
-				// } else {
-				// 	parentRef && (parentRef = ref);
-				// }
 			}}
 			// I'm cool with auto height just on mount
 			onInput={(e) => {

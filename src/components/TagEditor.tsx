@@ -1,5 +1,5 @@
 import InputAutoWidth from '../components/InputAutoWidth';
-import { RecursiveTag, getTagRelations, listAllTags } from '../utils/tags';
+import { RecursiveTag, getTagRelations, listAllTags, sortKeysByNodeCount } from '../utils/tags';
 import { matchSorter } from 'match-sorter';
 import { A } from '@solidjs/router';
 import { createEffect, createMemo, createSignal, JSX } from 'solid-js';
@@ -9,11 +9,10 @@ import { arrowTopRightOnSquare, link, trash, xMark } from 'solid-heroicons/solid
 
 const TagEditor = (props: {
 	// _ref?: ((r: HTMLInputElement | null) => void) | React.MutableRefObject<HTMLInputElement | null>;
-	subTaggingLineage: string[];
-	recTag: RecursiveTag;
+	subTaggingLineage: () => string[];
+	recTag: () => RecursiveTag;
 	parentTag?: string;
 	onRename: (oldTag: string, newTag: string, newSubTaggingLineage: string[]) => void | Promise<any>;
-	onLinkClick: (tag: string, e: MouseEvent) => void;
 	onSubtag: (tag: string, parentTag: string, newSubTaggingLineage: string[]) => void | Promise<any>;
 	onRemove: (currentTagLabel: string, parentTag?: string) => void;
 	onKeyDown?: JSX.DOMAttributes<HTMLInputElement>['onKeyDown'];
@@ -24,41 +23,44 @@ const TagEditor = (props: {
 		recTag,
 		parentTag,
 		onRename,
-		onLinkClick,
 		onSubtag,
 		onRemove,
 		onKeyDown,
 	} = props;
 	const [addingSubtag, addingSubtagSet] = createSignal(
-		JSON.stringify(recTag.lineage) === JSON.stringify(subTaggingLineage),
+		JSON.stringify(recTag().lineage) === JSON.stringify(subTaggingLineage),
 	);
 	createEffect(() => {
-		addingSubtagSet(JSON.stringify(recTag.lineage) === JSON.stringify(subTaggingLineage));
+		addingSubtagSet(JSON.stringify(recTag().lineage) === JSON.stringify(subTaggingLineage));
 	});
 	const [editing, editingSet] = createSignal(false);
 	const [tagFilter, tagFilterSet] = createSignal('');
 	const [tagIndex, tagIndexSet] = createSignal<number>(0);
 	const [suggestTags, suggestTagsSet] = createSignal(false);
-	let defaultLabel = recTag.label;
-	let editingIpt: null | HTMLInputElement = null;
-	let tagLnk: null | HTMLAnchorElement = null;
-	let makeSubsetBtn: null | HTMLButtonElement = null;
-	let removeBtn: null | HTMLButtonElement = null;
-	let addingIpt: null | HTMLInputElement = null;
+	let defaultLabel = recTag().label;
+	let editingIpt: undefined | HTMLInputElement;
+	let tagLnk: undefined | HTMLAnchorElement;
+	let makeSubsetBtn: undefined | HTMLButtonElement;
+	let removeBtn: undefined | HTMLButtonElement;
+	let addingIpt: undefined | HTMLInputElement;
 	let tagSuggestionsRefs: (null | HTMLButtonElement)[] = [];
 
-	const nodesArr = createMemo(() => (tagTree ? listAllTags(getTagRelations(tagTree)) : null));
 	const trimmedFilter = createMemo(() => tagFilter().trim());
-	const suggestedTags = createMemo(() => {
-		if (!nodesArr() || !suggestTags()) return [];
-		let arr = matchSorter(nodesArr()!, tagFilter());
-		trimmedFilter ? arr.push(trimmedFilter()) : arr.unshift(...lastUsedTags);
-		const ignoredSuggestedTags = new Set(
-			recTag.subRecTags?.map((t) => t.label).concat(recTag.label),
+	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
+	const filteredTags = createMemo(() => {
+		if (!suggestTags()) return [];
+		const addedTagsSet = new Set(
+			recTag()
+				.subRecTags?.map((t) => t.label)
+				.concat(recTag().label),
 		);
-		arr = [...new Set(arr)].filter((tag) => !ignoredSuggestedTags.has(tag));
-		return arr;
+		if (!trimmedFilter()) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
+		const filter = trimmedFilter().replace(/\s+/g, '');
+		const arr = matchSorter(allTags(), filter).slice(0, 99).concat(trimmedFilter());
+		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
+
 	const onEditingBlur = () => {
 		editingIpt!.value = defaultLabel;
 		setTimeout(() => {
@@ -72,15 +74,15 @@ const TagEditor = (props: {
 			}
 		}, 0);
 	};
-	const addSubTag = (e: MouseEvent, tagToAdd?: string) => {
-		tagToAdd = tagToAdd || suggestedTags()?.[tagIndex()] || trimmedFilter();
+	const addSubTag = (e: KeyboardEvent | MouseEvent, tagToAdd?: string) => {
+		tagToAdd = tagToAdd || filteredTags()?.[tagIndex()] || trimmedFilter();
 		if (!tagToAdd) return;
 		addingIpt!.focus();
 		lastUsedTagsSet([...new Set([tagToAdd, ...lastUsedTags])].slice(0, 5));
 		onSubtag(
 			tagToAdd,
-			recTag.label,
-			e.ctrlKey ? recTag.lineage.concat(tagToAdd) : e.altKey ? recTag.lineage : [],
+			recTag().label,
+			e.ctrlKey ? recTag().lineage.concat(tagToAdd) : e.altKey ? recTag().lineage : [],
 		)?.then(() => {
 			setTimeout(() => {
 				// addingIpt && (addingIpt.value = '');
@@ -90,22 +92,22 @@ const TagEditor = (props: {
 	};
 
 	createEffect(() => {
-		editingIpt!.value = recTag.label;
-		defaultLabel = recTag.label;
+		editingIpt!.value = recTag().label;
+		defaultLabel = recTag().label;
 	});
 
 	return (
 		<div>
 			<div class="fx">
 				<InputAutoWidth
-					ref={(r: HTMLInputElement | null) => {
+					ref={(r) => {
 						editingIpt = r;
 						// if (_ref) {
 						// 	// @ts-ignore
 						// 	typeof _ref === 'function' ? _ref(r) : (_ref = r);
 						// }
 					}}
-					// defaultValue={recTag.label}
+					value={recTag().label} // TODO: so just use value instead of defaultValue?
 					placeholder="Edit tag"
 					size={1}
 					class="h-8 min-w-52 border-b-2 text-xl font-medium transition border-bg1 hover:border-mg2 focus:border-fg2"
@@ -121,17 +123,17 @@ const TagEditor = (props: {
 							if (e.altKey) {
 								addingSubtagSet(true);
 							}
-							if (newLabel !== recTag.label) {
+							if (newLabel !== recTag().label) {
 								editingSet(false);
 								defaultLabel = newLabel;
 								// editingIpt?.blur();
 								onRename(
-									recTag.label,
+									recTag().label,
 									newLabel,
 									e.ctrlKey
-										? recTag.lineage.slice(0, -1).concat(newLabel)
+										? recTag().lineage.slice(0, -1).concat(newLabel)
 										: e.altKey
-										? recTag.lineage.slice(0, -1)
+										? recTag().lineage.slice(0, -1)
 										: [],
 								);
 							}
@@ -144,8 +146,7 @@ const TagEditor = (props: {
 							class="xy h-8 w-8 group"
 							ref={(r) => (tagLnk = r)}
 							onBlur={onEditingBlur}
-							href={`/tags/${encodeURIComponent(recTag.label)}`}
-							onClick={(e) => onLinkClick(recTag.label, e)}
+							href={`/tags/${encodeURIComponent(recTag().label)}`}
 						>
 							<Icon
 								path={link}
@@ -174,8 +175,8 @@ const TagEditor = (props: {
 							onKeyDown={(e) => e.key === 'Tab' && !e.shiftKey && editingSet(false)}
 							onClick={() => {
 								const ok =
-									!!parentTag || confirm(`You are about to delete the "${recTag.label}" tag`);
-								ok ? onRemove(recTag.label, parentTag) : editingIpt?.focus();
+									!!parentTag || confirm(`You are about to delete the "${recTag().label}" tag`);
+								ok ? onRemove(recTag().label, parentTag) : editingIpt?.focus();
 							}}
 						>
 							{parentTag ? (
@@ -191,8 +192,11 @@ const TagEditor = (props: {
 				{addingSubtag() && (
 					<>
 						<InputAutoWidth
-							ref={(r) => (addingIpt = r)}
-							autofocus
+							// autofocus
+							ref={(t) => {
+								addingIpt = t;
+								setTimeout(() => t.focus(), 0);
+							}}
 							placeholder="Subtag"
 							size={1}
 							class="h-8 min-w-52 border-b-2 text-xl font-medium transition border-mg2 hover:border-fg2 focus:border-fg2"
@@ -207,9 +211,9 @@ const TagEditor = (props: {
 								tagFilterSet(e.target.value);
 							}}
 							onKeyDown={(e) => {
-								// e.key === 'Enter' && addSubTag(e);
+								e.key === 'Enter' && addSubTag(e);
 								e.key === 'Tab' && suggestTagsSet(false);
-								e.key === 'Escape' && (suggestTags() ? suggestTagsSet(false) : addingIpt?.blur());
+								e.key === 'Escape' && addingIpt?.blur();
 								if (e.key === 'ArrowUp') {
 									e.preventDefault();
 									const index = Math.max(tagIndex() - 1, -1);
@@ -219,7 +223,8 @@ const TagEditor = (props: {
 								}
 								if (e.key === 'ArrowDown') {
 									e.preventDefault();
-									const index = Math.min(tagIndex() + 1, suggestedTags!.length - 1);
+									const index = Math.min(tagIndex() + 1, filteredTags()!.length - 1);
+									console.log('index:', index);
 									tagSuggestionsRefs[index]?.focus();
 									addingIpt?.focus();
 									tagIndexSet(index);
@@ -239,7 +244,7 @@ const TagEditor = (props: {
 						/>
 						{suggestTags() && (
 							<div class="z-20 flex flex-col overflow-scroll rounded mt-0.5 bg-mg1 absolute min-w-[calc(100%-12px)] max-h-56 shadow">
-								{suggestedTags().map((tag, i) => {
+								{filteredTags().map((tag, i) => {
 									return (
 										<button
 											ref={(r) => (tagSuggestionsRefs[i] = r)}
@@ -256,13 +261,12 @@ const TagEditor = (props: {
 						)}
 					</>
 				)}
-				{recTag.subRecTags?.map((subRecTag) => (
+				{recTag().subRecTags?.map((subRecTag) => (
 					<TagEditor
 						subTaggingLineage={subTaggingLineage}
-						parentTag={recTag.label}
-						recTag={subRecTag}
+						parentTag={recTag().label}
+						recTag={() => subRecTag}
 						onRename={onRename}
-						onLinkClick={onLinkClick}
 						onSubtag={onSubtag}
 						onRemove={onRemove}
 					/>

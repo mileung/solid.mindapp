@@ -73,7 +73,6 @@ let scrollingDown = true;
 
 export default function Header() {
 	const [searchParams] = useSearchParams();
-	const location = useLocation();
 	const navigate = useNavigate();
 	let searchIpt: undefined | HTMLInputElement;
 	let searchBtn: undefined | HTMLButtonElement;
@@ -90,15 +89,15 @@ export default function Header() {
 		searchedText().trim().replace(bracketRegex, '').replace(/\s\s+/g, ' ').trim(),
 	);
 
-	const trimmedFilter = createMemo(() => tagFilter().trim());
 	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
 	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
 	const suggestedTags = createMemo(() => {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(addedTags());
-		if (!trimmedFilter()) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
-		const filter = trimmedFilter().replace(/\s+/g, '');
-		let arr = matchSorter(allTags(), filter).concat(trimmedFilter());
+		const trimmedFilter = tagFilter().trim();
+		if (!trimmedFilter) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
+		const filter = trimmedFilter.replace(/\s+/g, '');
+		let arr = matchSorter(allTags(), filter).slice(0, 99).concat(trimmedFilter);
 		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
 

@@ -76,7 +76,7 @@ export const ThoughtWriter = (props: {
 		const addedTagsSet = new Set(addedTags());
 		if (!trimmedFilter()) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
 		const filter = trimmedFilter().replace(/\s+/g, '');
-		let arr = matchSorter(allTags(), filter).concat(trimmedFilter());
+		const arr = matchSorter(allTags(), filter).slice(0, 99).concat(trimmedFilter());
 		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
 
