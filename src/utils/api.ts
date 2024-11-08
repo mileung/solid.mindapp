@@ -9,6 +9,12 @@ export const testingExternalClientLocally = false;
 // export const hostedLocally = location.host === localClientHost;
 // export const testingExternalClientLocally = location.host === 'localhost:1001';
 
+export const defaultSpaceHost = hostedLocally
+	? ''
+	: testingExternalClientLocally
+	? 'localhost:8080'
+	: 'api.mindapp.cc';
+
 export function makeUrl(path: string, params?: Record<string, any>) {
 	return buildUrl({ path, params });
 }

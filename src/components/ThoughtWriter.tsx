@@ -1,17 +1,17 @@
 import { useLocation, useNavigate, useSearchParams } from '@solidjs/router';
 import { matchSorter } from 'match-sorter';
-import { createSignal, createMemo } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { Icon } from 'solid-heroicons';
+import { plus, userPlus, xCircle } from 'solid-heroicons/solid-mini';
+import { createMemo, createSignal } from 'solid-js';
 import { SignedAuthor } from '~/types/Author';
 import { buildUrl, hostedLocally, localApiHost, makeUrl, ping, post } from '~/utils/api';
 import { Thought } from '~/utils/ClientThought';
 import { isStringifiedRecord } from '~/utils/js';
 import { useKeyPress } from '~/utils/keyboard';
+import { getSignature, sendMessage } from '~/utils/signing';
 import {
 	activeSpace,
 	authorsSet,
-	lastUsedTags,
-	lastUsedTagsSet,
 	mentionedThoughtsSet,
 	personas,
 	tagTree,
@@ -25,9 +25,6 @@ import {
 	TagTree,
 } from '~/utils/tags';
 import TextareaAutoHeight from './TextareaAutoHeight';
-import { Icon } from 'solid-heroicons';
-import { plus, userPlus, xCircle } from 'solid-heroicons/solid-mini';
-import { getSignature, sendMessage } from '~/utils/signing';
 
 export const ThoughtWriter = (props: {
 	initialContent?: Thought['content'];
@@ -75,7 +72,7 @@ export const ThoughtWriter = (props: {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(addedTags());
 		if (!trimmedFilter()) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
-		const filter = trimmedFilter().replace(/\s+/g, '');
+		const filter = trimmedFilter().replace(/\s+/g, ' ');
 		const arr = matchSorter(allTags(), filter).slice(0, 99).concat(trimmedFilter());
 		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
@@ -95,7 +92,6 @@ export const ThoughtWriter = (props: {
 		if (!tagToAdd) return;
 		addedTagsSet([...new Set([...addedTags(), tagToAdd])]);
 		tagIpt!.focus();
-		lastUsedTagsSet([...new Set([tagToAdd, ...lastUsedTags])].slice(0, 5));
 		tagFilterSet('');
 		tagIndexSet(-1);
 	};

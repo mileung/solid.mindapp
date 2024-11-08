@@ -5,7 +5,7 @@ import { formatTimestamp } from '../utils/time';
 import DeterministicVisualId from './DeterministicVisualId';
 import { localClientHost } from '../utils/api';
 import { createEffect, createMemo, Setter } from 'solid-js';
-import { authors, fetchedSpaces, savedFileThoughtIds, savedFileThoughtIdsSet } from '~/utils/state';
+import { authors, fetchedSpaces } from '~/utils/state';
 import { Icon } from 'solid-heroicons';
 import { cube, cubeTransparent, fingerPrint } from 'solid-heroicons/solid-mini';
 

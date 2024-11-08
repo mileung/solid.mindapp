@@ -40,7 +40,7 @@ export default function Home() {
 	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
 	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
 	const filteredTags = createMemo(() => {
-		const filter = tagFilter().trim().replace(/\s+/g, '');
+		const filter = tagFilter().trim().replace(/\s+/g, ' ');
 		return !filter ? defaultTags() : allTags() && matchSorter(allTags(), filter).slice(0, 99);
 	});
 	const focusedTag = createMemo(() => searchedTags().length === 1 && searchedTags()[0]);

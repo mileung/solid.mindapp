@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from 'solid-js';
+import { createEffect, createMemo, createSignal } from 'solid-js';
 import InputAutoWidth from './InputAutoWidth';
 import { Icon } from 'solid-heroicons';
 import { check, eye, eyeSlash, xMark } from 'solid-heroicons/solid-mini';
@@ -73,6 +73,10 @@ export default function TextInput(props: {
 	const id = createMemo(() => label.toLowerCase().replace(/\s+/g, '-'));
 	let keyUp = true;
 
+	createEffect(() => {
+		ipt && props.defaultValue && (ipt.value = props.defaultValue);
+	});
+
 	const submit = (value: string) => {
 		if (!password) value = value.trim();
 		onSubmit?.(value);
@@ -113,7 +117,8 @@ export default function TextInput(props: {
 					autocomplete="off"
 					class="leading-3 min-w-52 border-b-2 text-2xl font-medium transition border-mg2 hover:border-fg2 focus:border-fg2"
 					type={password && !passwordVisible ? 'password' : 'text'}
-					// value={internalValue}
+					// @ts-ignore
+					defaultValue={props.defaultValue}
 					onFocus={() => focusedSet(true)}
 					onBlur={onEditingBlur}
 					onKeyUp={() => (keyUp = true)}
@@ -142,6 +147,7 @@ export default function TextInput(props: {
 					}}
 					ref={(tag) => {
 						ipt = tag;
+						defaultValue && (tag.value = defaultValue);
 						if (ref) {
 							ref(tag);
 							Object.defineProperty(ref, 'error', {

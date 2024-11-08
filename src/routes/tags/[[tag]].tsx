@@ -15,9 +15,9 @@ import { debounce } from '~/utils/performance';
 import { useKeyPress } from '~/utils/keyboard';
 import { matchSorter } from 'match-sorter';
 import InputAutoWidth from '~/components/InputAutoWidth';
-import { copyToClipboardAsync } from '~/utils/js';
+import { clone, copyToClipboardAsync } from '~/utils/js';
 import { A, useNavigate, useParams } from '@solidjs/router';
-import { createEffect, createMemo, createSignal } from 'solid-js';
+import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
 import { Icon } from 'solid-heroicons';
 
 // TODO: the owner of communal spaces can edit this page
@@ -58,7 +58,7 @@ export default function Tags() {
 
 	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree).reverse());
 	const filteredTags = createMemo(() => {
-		const filter = trimmedTagFilter().replace(/\s+/g, '');
+		const filter = trimmedTagFilter().replace(/\s+/g, ' ');
 		return !filter
 			? defaultTags()
 			: allTags() && matchSorter(allTags(), filter).slice(0, 99).concat(tagToAdd());
@@ -75,10 +75,13 @@ export default function Tags() {
 
 	const suggestedParentTags = createMemo(() => {
 		const trimmedParentTagFilter = parentTagFilter().trim();
-		const filter = trimmedParentTagFilter.replace(/\s+/g, '');
+		const filter = trimmedParentTagFilter.replace(/\s+/g, ' ');
 		if (!suggestParentTags()) return [];
 		const addedTagsSet = new Set(rootParents());
-		if (!filter) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
+		if (!filter)
+			return defaultTags()
+				.filter((tag) => !addedTagsSet.has(tag))
+				.reverse();
 		const arr = matchSorter(allTags(), filter).slice(0, 99).concat(trimmedParentTagFilter);
 		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
@@ -92,7 +95,7 @@ export default function Tags() {
 		if (!hostedLocally) return alert('Run Mindapp locally to edit tags');
 		ping<TagTree>(makeUrl('get-tag-tree'))
 			.then((data) => {
-				tagTreeSet(data);
+				tagTreeSet(clone(data));
 				// const newNodesArr = listAllTags(getTagRelations(data));
 				// const newSuggestedTags =
 				// 	ignoreTagFilter || !tagFilter() ? newNodesArr : matchSorter(newNodesArr, tagFilter());
@@ -117,6 +120,7 @@ export default function Tags() {
 		!e.altKey && addingParentSet(false);
 		parentTagFilterSet('');
 		parentTagIndexSet(0);
+		tagIndexSet(null);
 		return ping(makeUrl('add-tag'), post({ tag: rootTag()?.label, parentTag }))
 			.then(() => refreshTagTree(rootTag()!.label))
 			.catch((err) => alert(err));
@@ -176,6 +180,7 @@ export default function Tags() {
 			replaceTag(filteredTags()![index]);
 		}
 	};
+
 	useKeyPress({ key: 'ArrowDown', allowRepeats: true }, onArrowUpOrDown);
 	useKeyPress({ key: 'ArrowUp', allowRepeats: true }, onArrowUpOrDown);
 

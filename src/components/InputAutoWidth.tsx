@@ -6,10 +6,13 @@ const resize = (node: HTMLInputElement) => {
 	node.style.width = Math.min(maxWidth, node.scrollWidth) + 'px';
 };
 
-const InputAutoWidth = (props: JSX.InputHTMLAttributes<HTMLInputElement>) => {
+const InputAutoWidth = (
+	props: JSX.InputHTMLAttributes<HTMLInputElement> & { defaultValue?: string },
+) => {
 	let internalRef: undefined | HTMLInputElement;
 
 	createEffect(() => {
+		props.defaultValue;
 		setTimeout(() => internalRef && resize(internalRef), 0);
 	});
 

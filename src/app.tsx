@@ -1,42 +1,41 @@
+import '@fontsource-variable/fira-code';
+import '@fontsource-variable/quicksand';
 import { MetaProvider, Title } from '@solidjs/meta';
 import { Router } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { createEffect, Suspense } from 'solid-js';
-import Header from './components/Header';
-import '@fontsource-variable/quicksand';
-import '@fontsource-variable/fira-code';
+import { createEffect, onMount, Suspense } from 'solid-js';
 import '~/styles/root.css';
 import '~/utils/theme';
+import { setTheme } from '~/utils/theme';
+import Header from './components/Header';
+import { Author } from './types/Author';
+import { buildUrl, hostedLocally, makeUrl, ping } from './utils/api';
+import { getCookie } from './utils/cookies';
+import { getIdbStore, updateIdbStore } from './utils/indexedDb';
+import { clone } from './utils/js';
+import { hashItem } from './utils/security';
+import { RootSettings, Space, WorkingDirectory } from './utils/settings';
+import { sendMessage } from './utils/signing';
 import {
 	activeSpace,
-	authorsSet,
 	fetchedSpaces,
 	fetchedSpacesSet,
-	getLocalState,
-	localState,
-	localStateSet,
 	personas,
+	personasSet,
 	rootSettingsSet,
+	tagTree,
 	tagTreeSet,
-	updateLocalState,
+	theme,
+	themeSet,
+	workingDirectorySet,
 } from './utils/state';
-import { buildUrl, hostedLocally, makeUrl, ping, post } from './utils/api';
 import { TagTree } from './utils/tags';
-import { getMnemonic, sendMessage } from './utils/signing';
-import { tokenNetwork } from './types/TokenNetwork';
-import { setTheme } from '~/utils/theme';
-import { RootSettings, Space, WorkingDirectory } from './utils/settings';
-import { hashItem } from './utils/security';
-import { Author } from './types/Author';
-import { isServer } from 'solid-js/web';
 
 export default function App() {
 	// const prefersDark = usePrefersDark();
 	// createEffect(() => {
 	// 	console.log('test');
 	// });
-
-	let themeRef = localState.theme;
 
 	// createEffect(() => {
 	// 	if (!personas[0].id) return;
@@ -54,46 +53,47 @@ export default function App() {
 	// 	}
 	// }, [personas[0].id]);
 
-	// createEffect(() => {
-	// 	// does not exist on older browsers
-	// 	if (window?.matchMedia('(prefers-color-scheme: dark)')?.addEventListener) {
-	// 		window?.matchMedia('(prefers-color-scheme: dark)')?.addEventListener('change', () => {
-	// 			setTheme(themeRef);
-	// 		});
-	// 	}
-	// }, []);
+	createEffect(() => {
+		// does not exist on older browsers
+		if (window?.matchMedia('(prefers-color-scheme: dark)')?.addEventListener) {
+			window?.matchMedia('(prefers-color-scheme: dark)')?.addEventListener('change', () => {
+				setTheme(theme());
+			});
+		}
+	});
 
-	// createEffect(() => {
-	// 	themeRef = localState.theme;
-	// 	setTheme(localState.theme);
-	// }, [localState?.theme]);
+	onMount(() => {
+		const cookieTheme = getCookie('theme');
+		themeSet((cookieTheme?.startsWith('system') ? 'system' : cookieTheme) || 'system');
+	});
+	createEffect(() => setTheme(theme()));
 
-	// createEffect(() => {
-	// 	if (!hostedLocally) return;
-	// 	ping<{ rootSettings: RootSettings; workingDirectory: WorkingDirectory }>(
-	// 		makeUrl('get-root-settings'),
-	// 	)
-	// 		.then(({ rootSettings, workingDirectory }) => {
-	// 			rootSettingsSet(rootSettings);
-	// 			workingDirectorySet(workingDirectory);
-	// 		})
-	// 		.catch((err) => console.error(err));
-	// 	ping<WorkingDirectory>(makeUrl('get-working-directory'))
-	// 		.then((data) => workingDirectorySet(data))
-	// 		.catch((err) => console.error(err));
-	// 	// ping<Persona[]>(
-	// 	// 	makeUrl('get-personas'),
-	// 	// 	post({
-	// 	// 		order: getLocalState().personas.map(({ id }) => id),
-	// 	// 	}),
-	// 	// )
-	// 	// 	.then((p) => {
-	// 	// 		// console.log('p:', p);
-	// 	// 		personasSet(p);
-	// 	// 		localStateSet((old) => ({ ...old, personas: p }));
-	// 	// 	})
-	// 	// 	.catch((err) => console.error(err));
-	// });
+	createEffect(() => {
+		if (!hostedLocally) return;
+		ping<{ rootSettings: RootSettings; workingDirectory: WorkingDirectory }>(
+			makeUrl('get-root-settings'),
+		)
+			.then(({ rootSettings, workingDirectory }) => {
+				rootSettingsSet(rootSettings);
+				workingDirectorySet(workingDirectory);
+			})
+			.catch((err) => console.error(err));
+		ping<WorkingDirectory>(makeUrl('get-working-directory'))
+			.then((data) => workingDirectorySet(data))
+			.catch((err) => console.error(err));
+		// ping<Persona[]>(
+		// 	makeUrl('get-personas'),
+		// 	post({
+		// 		order: getLocalState().personas.map(({ id }) => id),
+		// 	}),
+		// )
+		// 	.then((p) => {
+		// 		// console.log('p:', p);
+		// 		personasSet(p);
+		// 		localStateSet((old) => ({ ...old, personas: p }));
+		// 	})
+		// 	.catch((err) => console.error(err));
+	});
 
 	createEffect(() => {
 		const { host } = activeSpace;
@@ -165,9 +165,22 @@ export default function App() {
 	// 	localStateSet((old) => ({ ...old, fetchedSpaces }));
 	// }, [fetchedSpaces]);
 
-	// createEffect(() => {
-	// 	updateLocalState(localState);
-	// }, [localState]);
+	onMount(async () => {
+		const initialIdbStore = await getIdbStore();
+		personasSet(initialIdbStore.personas);
+		fetchedSpacesSet(initialIdbStore.fetchedSpaces);
+		tagTreeSet(initialIdbStore.tagTree);
+	});
+
+	createEffect(() => {
+		// TODO: this is not efficient but the clones are needed to trigger this function idk y
+		const newStore = clone({
+			personas,
+			fetchedSpaces,
+			tagTree,
+		});
+		updateIdbStore(newStore);
+	});
 
 	return (
 		<Router

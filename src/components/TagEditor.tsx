@@ -1,11 +1,11 @@
-import InputAutoWidth from '../components/InputAutoWidth';
-import { RecursiveTag, getTagRelations, listAllTags, sortKeysByNodeCount } from '../utils/tags';
-import { matchSorter } from 'match-sorter';
 import { A } from '@solidjs/router';
-import { createEffect, createMemo, createSignal, JSX } from 'solid-js';
-import { lastUsedTags, lastUsedTagsSet, tagTree } from '~/utils/state';
+import { matchSorter } from 'match-sorter';
 import { Icon } from 'solid-heroicons';
 import { arrowTopRightOnSquare, link, trash, xMark } from 'solid-heroicons/solid-mini';
+import { createEffect, createMemo, createSignal, JSX } from 'solid-js';
+import { tagTree } from '~/utils/state';
+import InputAutoWidth from '../components/InputAutoWidth';
+import { getTagRelations, listAllTags, RecursiveTag, sortKeysByNodeCount } from '../utils/tags';
 
 const TagEditor = (props: {
 	// _ref?: ((r: HTMLInputElement | null) => void) | React.MutableRefObject<HTMLInputElement | null>;
@@ -47,7 +47,7 @@ const TagEditor = (props: {
 
 	const trimmedFilter = createMemo(() => tagFilter().trim());
 	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
-	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree).reverse());
 	const filteredTags = createMemo(() => {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(
@@ -56,7 +56,7 @@ const TagEditor = (props: {
 				.concat(recTag().label),
 		);
 		if (!trimmedFilter()) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
-		const filter = trimmedFilter().replace(/\s+/g, '');
+		const filter = trimmedFilter().replace(/\s+/g, ' ');
 		const arr = matchSorter(allTags(), filter).slice(0, 99).concat(trimmedFilter());
 		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
@@ -78,7 +78,6 @@ const TagEditor = (props: {
 		tagToAdd = tagToAdd || filteredTags()?.[tagIndex()] || trimmedFilter();
 		if (!tagToAdd) return;
 		addingIpt!.focus();
-		lastUsedTagsSet([...new Set([tagToAdd, ...lastUsedTags])].slice(0, 5));
 		onSubtag(
 			tagToAdd,
 			recTag().label,

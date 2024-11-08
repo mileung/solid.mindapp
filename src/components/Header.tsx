@@ -1,17 +1,19 @@
-import { A, useLocation, useNavigate, useSearchParams } from '@solidjs/router';
+import { useNavigate, useSearchParams } from '@solidjs/router';
+import { matchSorter } from 'match-sorter';
 import { Icon } from 'solid-heroicons';
 import {
+	bars_3,
 	check,
+	cog,
 	ellipsisHorizontal,
 	lockClosed,
 	magnifyingGlass,
 	square_2Stack,
 	tag,
 	userGroup,
-	cog,
-	bars_3,
 } from 'solid-heroicons/solid';
-import { matchSorter } from 'match-sorter';
+import { createEffect, createMemo, createSignal } from 'solid-js';
+import { Persona } from '../types/PersonasPolyfill';
 import { hostedLocally, localApiHost, makeUrl, ping } from '../utils/api';
 import { shortenString } from '../utils/js';
 import { useKeyPress } from '../utils/keyboard';
@@ -19,11 +21,6 @@ import { Space } from '../utils/settings';
 import {
 	activeSpace,
 	fetchedSpaces,
-	fetchedSpacesSet,
-	getLocalState,
-	lastUsedTags,
-	lastUsedTagsSet,
-	localStateSet,
 	personas,
 	personasSet,
 	rootSettings,
@@ -34,17 +31,11 @@ import {
 import {
 	bracketRegex,
 	getTagRelations,
-	listAllTags,
 	getTags,
+	listAllTags,
 	sortKeysByNodeCount,
 } from '../utils/tags';
 import DeterministicVisualId from './DeterministicVisualId';
-import { passwords, Persona } from '../types/PersonasPolyfill';
-import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
-import { decrypt } from '~/utils/security';
-import { validateMnemonic } from '@scure/bip39';
-import { wordlist } from '@scure/bip39/wordlists/english';
-import { modes } from './Results';
 
 const setGlobalCssVariable = (variableName: string, value: string) => {
 	document.documentElement.style.setProperty(`--${variableName}`, value);
@@ -96,7 +87,7 @@ export default function Header() {
 		const addedTagsSet = new Set(addedTags());
 		const trimmedFilter = tagFilter().trim();
 		if (!trimmedFilter) return defaultTags().filter((tag) => !addedTagsSet.has(tag));
-		const filter = trimmedFilter.replace(/\s+/g, '');
+		const filter = trimmedFilter.replace(/\s+/g, ' ');
 		let arr = matchSorter(allTags(), filter).slice(0, 99).concat(trimmedFilter);
 		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
@@ -133,7 +124,6 @@ export default function Header() {
 
 	const addTagToSearchInput = (tag: string) => {
 		tagIndexSet(-1);
-		lastUsedTagsSet([tag, ...lastUsedTags]);
 		searchedTextSet(
 			`${searchedText()
 				.replace(/\s\s+/g, ' ')
@@ -316,7 +306,6 @@ export default function Header() {
 											? personas[0].spaceHosts.map((host) => fetchedSpaces[host])
 											: personas) || []) as (Space & Persona)[]
 									).map((thing, i) => {
-										console.log('thing:', thing);
 										const thingKey = switchingSpaces() ? thing?.host : thing.id;
 										const showCheck = !i;
 										return (
