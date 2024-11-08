@@ -3,7 +3,7 @@ import '@fontsource-variable/quicksand';
 import { MetaProvider, Title } from '@solidjs/meta';
 import { Router } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { createEffect, onMount, Suspense } from 'solid-js';
+import { createEffect, createSignal, onMount, Suspense } from 'solid-js';
 import '~/styles/root.css';
 import '~/utils/theme';
 import { setTheme } from '~/utils/theme';
@@ -17,7 +17,7 @@ import { hashItem } from './utils/security';
 import { RootSettings, Space, WorkingDirectory } from './utils/settings';
 import { sendMessage } from './utils/signing';
 import {
-	activeSpace,
+	useActiveSpace,
 	fetchedSpaces,
 	fetchedSpacesSet,
 	personas,
@@ -32,6 +32,7 @@ import {
 import { TagTree } from './utils/tags';
 
 export default function App() {
+	const [idbLoaded, idbLoadedSet] = createSignal(false);
 	// const prefersDark = usePrefersDark();
 	// createEffect(() => {
 	// 	console.log('test');
@@ -96,7 +97,7 @@ export default function App() {
 	});
 
 	createEffect(() => {
-		const { host } = activeSpace;
+		const { host } = useActiveSpace();
 		const savedTagTree = fetchedSpaces[host]?.tagTree;
 		savedTagTree && tagTreeSet(savedTagTree);
 		if (!host) {
@@ -109,40 +110,42 @@ export default function App() {
 					.catch((err) => console.error(err));
 		} else {
 			const { id, name, frozen, walletAddress, writeDate, signature } = personas[0];
-			const tagTreeHash = savedTagTree && hashItem(savedTagTree);
-			sendMessage<{ space: Omit<Space, 'host'> }>({
-				from: id,
-				to: buildUrl({ host, path: 'update-space-author' }),
-				tagTreeHash,
-				signedAuthor: !id
-					? undefined
-					: {
-							id,
-							name,
-							frozen,
-							walletAddress,
-							writeDate,
-							signature,
-					  },
-			})
-				.then(({ space }) => {
-					if (!id) space.fetchedSelf = new Author({});
-					fetchedSpacesSet((old) => ({
-						...old,
-						[host]: {
-							...old[host],
-							...space,
-							host,
-						},
-					}));
-					space.tagTree && tagTreeSet(space.tagTree);
-				})
-				.catch((err) => {
-					fetchedSpacesSet((old) => ({
-						...old,
-						[host]: { ...old[host], fetchedSelf: null },
-					}));
-				});
+			// const tagTreeHash = savedTagTree && hashItem(savedTagTree);
+			// console.log('tagTreeHash:', hashItem('tagTreeHash'));
+
+			// sendMessage<{ space: Omit<Space, 'host'> }>({
+			// 	from: id,
+			// 	to: buildUrl({ host, path: 'update-space-author' }),
+			// 	tagTreeHash,
+			// 	signedAuthor: !id
+			// 		? undefined
+			// 		: {
+			// 				id,
+			// 				name,
+			// 				frozen,
+			// 				walletAddress,
+			// 				writeDate,
+			// 				signature,
+			// 		  },
+			// })
+			// 	.then(({ space }) => {
+			// 		if (!id) space.fetchedSelf = new Author({});
+			// 		fetchedSpacesSet((old) => ({
+			// 			...old,
+			// 			[host]: {
+			// 				...old[host],
+			// 				...space,
+			// 				host,
+			// 			},
+			// 		}));
+			// 		space.tagTree && tagTreeSet(space.tagTree);
+			// 	})
+			// 	.catch((err) => {
+			// 		fetchedSpacesSet((old) => ({
+			// 			...old,
+			// 			[host]: { ...old[host], fetchedSelf: null },
+			// 		}));
+			// 	});
 		}
 	});
 
@@ -167,6 +170,7 @@ export default function App() {
 
 	onMount(async () => {
 		const initialIdbStore = await getIdbStore();
+		idbLoadedSet(true);
 		personasSet(initialIdbStore.personas);
 		fetchedSpacesSet(initialIdbStore.fetchedSpaces);
 		tagTreeSet(initialIdbStore.tagTree);
@@ -187,8 +191,12 @@ export default function App() {
 			root={(props) => (
 				<MetaProvider>
 					<Title>Mindapp</Title>
-					<Header />
-					<Suspense>{props.children}</Suspense>
+					{idbLoaded() && (
+						<>
+							<Header />
+							<Suspense>{props.children}</Suspense>
+						</>
+					)}
 				</MetaProvider>
 			)}
 		>

@@ -19,7 +19,7 @@ import { shortenString } from '../utils/js';
 import { useKeyPress } from '../utils/keyboard';
 import { Space } from '../utils/settings';
 import {
-	activeSpace,
+	useActiveSpace,
 	fetchedSpaces,
 	personas,
 	personasSet,
@@ -264,7 +264,8 @@ export default function Header() {
 							}}
 						>
 							<DeterministicVisualId
-								input={activeSpace.owner ? activeSpace : activeSpace.host}
+								input={useActiveSpace()}
+								// input={useActiveSpace().owner ? useActiveSpace() : useActiveSpace().host}
 								class="rounded overflow-hidden h-7 w-7"
 							/>
 						</button>
@@ -302,11 +303,11 @@ export default function Header() {
 							>
 								<div class="max-h-48 overflow-scroll">
 									{(
-										((switchingSpaces()
-											? personas[0].spaceHosts.map((host) => fetchedSpaces[host])
-											: personas) || []) as (Space & Persona)[]
+										(switchingSpaces()
+											? personas[0].spaceHosts.map((host) => fetchedSpaces[host] || { host })
+											: personas) as (Space & Persona)[]
 									).map((thing, i) => {
-										const thingKey = switchingSpaces() ? thing?.host : thing.id;
+										const thingKey = switchingSpaces() ? thing.host : thing.id;
 										const showCheck = !i;
 										return (
 											<div class="flex transition hover:bg-mg2">
@@ -355,8 +356,13 @@ export default function Header() {
 																!thing?.name && 'text-fg2'
 															} truncate`}
 														>
-															{thing?.name ||
-																(thingKey ? 'No name' : switchingSpaces() ? 'Local space' : 'Anon')}
+															{switchingSpaces()
+																? !thing.host
+																	? 'Local space'
+																	: fetchedSpaces[thing.host]?.fetchedSelf
+																	? fetchedSpaces[thing.host]!.name || 'No name'
+																	: '...'
+																: thing.name || (thingKey ? 'No name' : 'Anon')}
 														</p>
 														<p class="text-left font-mono text-fg2 leading-5 truncate">
 															{switchingSpaces()

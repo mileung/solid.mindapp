@@ -2,7 +2,7 @@ import { A } from '@solidjs/router';
 import { Icon } from 'solid-heroicons';
 import { chevronDoubleDown, chevronDoubleUp } from 'solid-heroicons/solid-mini';
 import { createEffect, createSignal } from 'solid-js';
-import { activeSpace, authors } from '~/utils/state';
+import { useActiveSpace, authors } from '~/utils/state';
 import { Vote } from '../types/Vote';
 import DeterministicVisualId from './DeterministicVisualId';
 
@@ -14,7 +14,7 @@ export default function Voters(props: { thoughtId: string }) {
 
 	const loadMoreVotes = async () => {
 		const lastVote = votes().slice(-1)[0];
-		if (lastVote === null || !activeSpace) return;
+		if (lastVote === null || !useActiveSpace()) return;
 		pinging = true;
 		const votesBeyond = lastVote?.voteDate || (oldToNew() ? 0 : Number.MAX_SAFE_INTEGER);
 		// sendMessage<{
@@ -22,7 +22,7 @@ export default function Voters(props: { thoughtId: string }) {
 		// 	votes: Vote[];
 		// }>({
 		// 	from: personas[0].id,
-		// 	to: buildUrl({ host: activeSpace.host || localApiHost, path: 'get-votes' }),
+		// 	to: buildUrl({ host: useActiveSpace().host || localApiHost, path: 'get-votes' }),
 		// 	thoughtId,
 		// 	oldToNew,
 		// 	votesBeyond,

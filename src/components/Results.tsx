@@ -5,7 +5,7 @@ import { createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import ThoughtBlock from '~/components/ThoughtBlock';
 import { ThoughtWriter } from '~/components/ThoughtWriter';
 import {
-	activeSpace,
+	useActiveSpace,
 	authors,
 	authorsSet,
 	mentionedThoughts,
@@ -99,12 +99,14 @@ export default function Results() {
 		newQueriedThoughtRoot && queriedThoughtRootSet(newQueriedThoughtRoot);
 	});
 
-	const pluggedIn = createMemo(() => activeSpace.fetchedSelf !== null || !activeSpace.host);
+	const pluggedIn = createMemo(
+		() => useActiveSpace().fetchedSelf !== null || !useActiveSpace().host,
+	);
 
 	const loadMoreThoughts = async () => {
 		if (!pluggedIn() || pinging) return;
 		const lastRoot = roots.slice(-1)[0];
-		if (lastRoot === null || !activeSpace) return;
+		if (lastRoot === null || !useActiveSpace()) return;
 		const ignoreRootIds = roots.map((root) => root && getThoughtId(root));
 		pinging = true;
 		sendMessage<{
@@ -114,7 +116,7 @@ export default function Results() {
 			roots: Thought[];
 		}>({
 			from: personas[0].id,
-			to: buildUrl({ host: activeSpace.host || localApiHost, path: 'get-roots' }),
+			to: buildUrl({ host: useActiveSpace().host || localApiHost, path: 'get-roots' }),
 			query: {
 				...search(),
 				ignoreRootIds,

@@ -17,7 +17,7 @@ import { buildUrl, hostedLocally, makeUrl, ping, post } from '~/utils/api';
 import { getThoughtId, Thought } from '~/utils/ClientThought';
 import { clone, isStringifiedRecord, makeReadable } from '~/utils/js';
 import { getSignature, sendMessage } from '~/utils/signing';
-import { activeSpace, authors, personas } from '~/utils/state';
+import { useActiveSpace, authors, personas } from '~/utils/state';
 import { minute, second } from '../utils/time';
 import ContentParser from './ContentParser';
 import ThoughtBlockHeader from './ThoughtBlockHeader';
@@ -88,15 +88,15 @@ export default function ThoughtBlock(props: {
 	};
 
 	const debouncedSwitchVote = async (up?: true) => {
-		if (!activeSpace.host) return alert('Cannot vote in local space');
+		if (!useActiveSpace().host) return alert('Cannot vote in local space');
 		if (!personaId) return alert('Anon cannot vote');
-		if (activeSpace.host !== thought().spaceHost) {
+		if (useActiveSpace().host !== thought().spaceHost) {
 			return alert('Cannot vote on thoughts created outside of the current space');
 		}
-		if (activeSpace.host !== thought().spaceHost) {
+		if (useActiveSpace().host !== thought().spaceHost) {
 			return alert('Cannot vote on thoughts created outside of the current space');
 		}
-		if (!activeSpace.deletableVotes && currentVote !== undefined) {
+		if (!useActiveSpace().deletableVotes && currentVote !== undefined) {
 			// return alert('Votes are finalized 3 seconds after submitting');
 			return alert('Votes cannot be undone');
 		}
@@ -116,7 +116,7 @@ export default function ThoughtBlock(props: {
 				return;
 				// return sendMessage({
 				// 	from: personaId(),
-				// 	to: buildUrl({ host: activeSpace.host, path: 'delete-vote' }),
+				// 	to: buildUrl({ host: useActiveSpace().host, path: 'delete-vote' }),
 				// 	thoughtId,
 				// });
 			}
@@ -133,11 +133,11 @@ export default function ThoughtBlock(props: {
 			// Else do a strong vote
 			// Weak votes are free to make and have 1 chevron colored
 			// Strong votes are backed by 1 $VIBE and have 2 chevrons colored
-			if (activeSpace.tokenId) {
+			if (useActiveSpace().tokenId) {
 				if (!walletAddress) return alert('Persona missing walletAddress');
 				const toAddress = newVote
 					? authors[thought().authorId || '']?.walletAddress
-					: activeSpace.downvoteAddress;
+					: useActiveSpace().downvoteAddress;
 				if (!toAddress) {
 					return newVote
 						? alert('author missing walletAddress')
@@ -150,7 +150,7 @@ export default function ThoughtBlock(props: {
 							post({
 								personaId: personaId(),
 								toAddress,
-								tokenId: activeSpace.tokenId,
+								tokenId: useActiveSpace().tokenId,
 								amount: '1',
 							}),
 						);
@@ -161,7 +161,7 @@ export default function ThoughtBlock(props: {
 						// 	walletAddress(),
 						// 	privateKey,
 						// 	toAddress,
-						// 	activeSpace.tokenId,
+						// 	useActiveSpace().tokenId,
 						// 	'1',
 						// );
 						// unsignedVote.txHash = block.hash;
@@ -178,7 +178,7 @@ export default function ThoughtBlock(props: {
 			};
 			// sendMessage({
 			// 	from: personaId(),
-			// 	to: buildUrl({ host: activeSpace.host, path: 'vote-on-thought' }),
+			// 	to: buildUrl({ host: useActiveSpace().host, path: 'vote-on-thought' }),
 			// 	replace: lastVote !== undefined,
 			// 	signedVote,
 			// }).catch((err) => {
@@ -263,7 +263,7 @@ export default function ThoughtBlock(props: {
 							</>
 						)}
 						<div class="z-50 mt-2 flex gap-2 text-fg2 max-w-full justify-between">
-							{activeSpace.host && (
+							{useActiveSpace().host && (
 								<div class="z-20 fx h-4 relative">
 									<button
 										class={`xy -ml-2 h-7 w-7 transition hover:text-orange-500 ${
@@ -360,7 +360,7 @@ export default function ThoughtBlock(props: {
 												const deletedThought = pointer[rootsIndices.slice(-1)[0]]!;
 												sendMessage<{ softDelete?: true }>({
 													from: personas[0]!.id,
-													to: buildUrl({ host: activeSpace.host, path: 'delete-thought' }),
+													to: buildUrl({ host: useActiveSpace().host, path: 'delete-thought' }),
 													thoughtId: thoughtId(),
 												})
 													.then(({ softDelete }) => {

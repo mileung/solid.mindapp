@@ -10,7 +10,7 @@ import { isStringifiedRecord } from '~/utils/js';
 import { useKeyPress } from '~/utils/keyboard';
 import { getSignature, sendMessage } from '~/utils/signing';
 import {
-	activeSpace,
+	useActiveSpace,
 	authorsSet,
 	mentionedThoughtsSet,
 	personas,
@@ -84,7 +84,7 @@ export const ThoughtWriter = (props: {
 			: initialStuff;
 	});
 	const makePersonaOnPost = createMemo(
-		// TODO: () => activeSpace.host && !personas[0].id,
+		// TODO: () => useActiveSpace().host && !personas[0].id,
 		() => false,
 	);
 	const addTag = (tagToAdd?: string) => {
@@ -106,7 +106,7 @@ export const ThoughtWriter = (props: {
 		const message = {
 			from: editId ? authorId : personas[0].id,
 			to: buildUrl({
-				host: editId ? spaceHost : activeSpace.host,
+				host: editId ? spaceHost : useActiveSpace().host,
 				path: 'write-thought',
 			}),
 			thought: {
@@ -125,7 +125,7 @@ export const ThoughtWriter = (props: {
 					: {
 							createDate: Date.now(),
 							authorId: personas[0].id || undefined,
-							spaceHost: activeSpace.host || undefined,
+							spaceHost: useActiveSpace().host || undefined,
 					  }),
 			} as Omit<Thought, 'children' | 'filedSaved'>,
 		};
@@ -158,7 +158,7 @@ export const ThoughtWriter = (props: {
 			)
 				.then((res) => {
 					// console.log('res:', res);
-					if (!activeSpace.host) {
+					if (!useActiveSpace().host) {
 						ping<TagTree>(makeUrl('get-tag-tree'))
 							.then((data) => tagTreeSet(data))
 							.catch((err) => alert(err));

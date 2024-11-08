@@ -1,4 +1,4 @@
-import { createSignal } from 'solid-js';
+import { createMemo, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { SignedAuthor } from '../types/Author';
 import { Persona } from '../types/PersonasPolyfill';
@@ -33,6 +33,6 @@ export const [tagTree, tagTreeSet] = createStore<TagTree>(defaultIdbStore.tagTre
 // TODO: For users hosting mindapp locally, indicate wherever tags are displayed which ones overlap with the local and space tag tree, tags that are specific  to the space, and tags that specific to what's local
 // export const [localTagTree,localTagTreeSet] = createSignal<null | TagTree>(null);
 
-export const activeSpace = fetchedSpaces[personas[0].spaceHosts[0]] || {
-	host: personas[0].spaceHosts[0],
-};
+export function useActiveSpace() {
+	return fetchedSpaces[personas[0].spaceHosts[0]] || { host: personas[0].spaceHosts[0] };
+}

@@ -57,7 +57,6 @@ export default function TextInput(props: {
 		placeholder = '',
 		required,
 		maxLength,
-		getIssue = () => '',
 		onKeyUp,
 		onSubmit,
 		showCheckX: _showCheckX,
@@ -139,7 +138,6 @@ export default function TextInput(props: {
 						}
 						error() && errorSet('');
 						if (numeric && value) {
-							// eslint-disable-next-line
 							value = value.replace(/[^0123456789\.]/g, '');
 							value = normalizeNumericInput(value, maxDecimals);
 						}
@@ -148,32 +146,7 @@ export default function TextInput(props: {
 					ref={(tag) => {
 						ipt = tag;
 						defaultValue && (tag.value = defaultValue);
-						if (ref) {
-							ref(tag);
-							Object.defineProperty(ref, 'error', {
-								get: () => error,
-								set: (v) => errorSet(v),
-							});
-							Object.defineProperty(ref, 'value', {
-								get: () => internalValue,
-								set: internalValueSet,
-							});
-							Object.defineProperty(ref, 'isValid', {
-								get() {
-									const { value } = ipt!;
-									const trimmedValue = value.trim();
-									if (required && !trimmedValue) {
-										errorSet('This field cannot be blank');
-										return false;
-									} else if (trimmedValue && getIssue) {
-										const newIssue = getIssue(trimmedValue) || '';
-										errorSet(newIssue);
-										return !newIssue;
-									}
-									return true;
-								},
-							});
-						}
+						if (ref) ref(tag);
 					}}
 				/>
 				{password && (

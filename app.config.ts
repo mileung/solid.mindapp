@@ -5,7 +5,7 @@ export default defineConfig({
 	vite: {
 		plugins: [
 			nodePolyfills({
-				include: ['buffer'],
+				include: ['buffer', 'crypto'],
 			}),
 		],
 	},
