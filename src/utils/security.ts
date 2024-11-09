@@ -1,48 +1,49 @@
 import { Buffer } from 'buffer/';
-import crypto from 'crypto';
+import forge from 'node-forge';
 import * as bip32 from '@scure/bip32';
 import * as bip39 from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { base58 } from '@scure/base';
-import * as secp256k1 from 'secp256k1';
+import * as secp256k1 from '@noble/secp256k1';
 import { sortKeysRecursively } from './js';
 
 export type Item = string | Record<string, any> | any[];
 
 export function encrypt(text: string, password: string) {
-	const iv = crypto.randomBytes(16);
-	const key = crypto
-		.createHash('sha256')
-		.update(String(password))
-		.digest('base64')
-		.substring(0, 32);
-	const cipher = crypto.createCipheriv('aes-256-ctr', key, iv);
-	let encrypted = cipher.update(text, 'utf8', 'hex');
-	encrypted += cipher.final('hex');
-	return `${base58.encode(iv)}:${base58.encode(Buffer.from(encrypted, 'hex'))}`;
+	const iv = forge.random.getBytesSync(16);
+	const key = forge.pkcs5.pbkdf2(password, forge.random.getBytesSync(16), 10000, 32); // PBKDF2 for key derivation
+	const cipher = forge.cipher.createCipher('AES-CTR', key);
+	cipher.start({ iv });
+	cipher.update(forge.util.createBuffer(text));
+	cipher.finish();
+
+	const encrypted = cipher.output.getBytes();
+	// return `${base58.encode(iv)}:${base58.encode(encrypted)}`;
+	return `${iv}:${encrypted}`;
 }
 
 export function decrypt(encrypted: string, password: string) {
 	const [iv, encryptedText] = encrypted.split(':');
-	const key = crypto
-		.createHash('sha256')
-		.update(String(password))
-		.digest('base64')
-		.substring(0, 32);
-	const decipher = crypto.createDecipheriv('aes-256-ctr', key, base58.decode(iv));
-	let decrypted = decipher.update(
-		Buffer.from(base58.decode(encryptedText)).toString('hex'),
-		'hex',
-		'utf8',
-	);
-	decrypted += decipher.final('utf8');
-	return decrypted;
+	const key = forge.pkcs5.pbkdf2(password, forge.random.getBytesSync(16), 10000, 32);
+
+	const decipher = forge.cipher.createDecipher('AES-CTR', key);
+	// decipher.start({ iv: base58.decode(iv) });
+	decipher.start({ iv });
+	decipher.update(forge.util.createBuffer(base58.decode(encryptedText)));
+	const result = decipher.finish();
+
+	if (!result) {
+		throw new Error('Decryption failed');
+	}
+
+	return decipher.output.toString();
 }
 
 export function createKeyPair(mnemonic?: string) {
 	mnemonic = bip39.validateMnemonic(mnemonic!, wordlist)
 		? mnemonic!
 		: bip39.generateMnemonic(wordlist);
+
 	const seed = bip39.mnemonicToSeedSync(mnemonic);
 	const masterKey = bip32.HDKey.fromMasterSeed(seed);
 	const address_index = 0;
@@ -56,26 +57,21 @@ export function createKeyPair(mnemonic?: string) {
 
 function bufferItem(item: Item) {
 	item = typeof item === 'string' ? item : JSON.stringify(sortKeysRecursively(item));
-	const sha256ItemHash = crypto.createHash('sha256').update(item).digest('hex');
-	const itemBuffer = Buffer.from(sha256ItemHash, 'hex');
-	return itemBuffer;
+	const sha256ItemHash = forge.md.sha256.create().update(item).digest().toHex();
+	return Buffer.from(sha256ItemHash, 'hex');
 }
 
 export function signItem(item: Item, privateKey: string) {
 	const privKeyBuffer = base58.decode(privateKey);
-	const { signature } = secp256k1.ecdsaSign(bufferItem(item), privKeyBuffer);
-	return base58.encode(signature);
+	const signature = secp256k1.sign(bufferItem(item), privKeyBuffer);
+	return signature.toCompactHex();
 }
 
 export function verifyItem(item: Item, publicKey: string, signature?: string) {
 	if (!signature) return false;
+
 	const publicKeyBuffer = base58.decode(publicKey);
-	const isValid = secp256k1.ecdsaVerify(
-		base58.decode(signature),
-		bufferItem(item),
-		publicKeyBuffer,
-	);
-	return isValid;
+	return secp256k1.verify(base58.decode(signature), bufferItem(item), publicKeyBuffer);
 }
 
 export function hashItem(item: Item) {

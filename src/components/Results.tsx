@@ -13,7 +13,7 @@ import {
 	personas,
 	roots,
 	rootsSet,
-	tagTree,
+	useTagTree,
 } from '~/utils/state';
 import { Thought, getThoughtId, isThoughtId } from '../utils/ClientThought';
 import { bracketRegex, getAllSubTags, getTags } from '../utils/tags';
@@ -58,7 +58,7 @@ export default function Results() {
 		const searchedTags = getTags(searchedText);
 		const allTags: Set<string> = new Set(searchedTags);
 		searchedTags.forEach((tag) => {
-			const arr = getAllSubTags(tagTree, tag);
+			const arr = getAllSubTags(useTagTree(), tag);
 			arr.forEach((tag) => allTags.add(tag));
 		});
 		let searchedTextNoTagsOrAuthors = searchedText

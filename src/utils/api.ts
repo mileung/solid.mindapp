@@ -1,17 +1,15 @@
 // import { useLocation } from '@solidjs/router';
 
-// const location = useLocation();
+import { isServer } from 'solid-js/web';
 
+export const hostedLocally = isServer ? false : location.host.startsWith('localhost:');
+export const localClientHost = hostedLocally ? location.host : '';
 export const localApiHost = 'localhost:2000';
-export const localClientHost = 'localhost:1000';
-export const hostedLocally = true;
-export const testingExternalClientLocally = false;
-// export const hostedLocally = location.host === localClientHost;
-// export const testingExternalClientLocally = location.host === 'localhost:1001';
+export const testingClientLocallyAsNormie = isServer ? false : location.host === 'localhost:1001';
 
 export const defaultSpaceHost = hostedLocally
 	? ''
-	: testingExternalClientLocally
+	: testingClientLocallyAsNormie
 	? 'localhost:8080'
 	: 'api.mindapp.cc';
 

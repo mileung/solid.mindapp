@@ -3,12 +3,12 @@ import { matchSorter } from 'match-sorter';
 import { Icon } from 'solid-heroicons';
 import { arrowTopRightOnSquare, link, trash, xMark } from 'solid-heroicons/solid-mini';
 import { createEffect, createMemo, createSignal, JSX } from 'solid-js';
-import { tagTree } from '~/utils/state';
+import { useTagTree } from '~/utils/state';
 import InputAutoWidth from '../components/InputAutoWidth';
 import { getTagRelations, listAllTags, RecursiveTag, sortKeysByNodeCount } from '../utils/tags';
 
 const TagEditor = (props: {
-	// _ref?: ((r: HTMLInputElement | null) => void) | React.MutableRefObject<HTMLInputElement | null>;
+	disabled?: boolean;
 	subTaggingLineage: () => string[];
 	recTag: () => RecursiveTag;
 	parentTag?: string;
@@ -18,7 +18,7 @@ const TagEditor = (props: {
 	onKeyDown?: JSX.DOMAttributes<HTMLInputElement>['onKeyDown'];
 }) => {
 	const {
-		// _ref,
+		disabled,
 		subTaggingLineage,
 		recTag,
 		parentTag,
@@ -46,8 +46,8 @@ const TagEditor = (props: {
 	let tagSuggestionsRefs: (null | HTMLButtonElement)[] = [];
 
 	const trimmedFilter = createMemo(() => tagFilter().trim());
-	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
-	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree).reverse());
+	const allTags = createMemo(() => listAllTags(getTagRelations(useTagTree())));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(useTagTree()).reverse());
 	const filteredTags = createMemo(() => {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(
@@ -99,13 +99,8 @@ const TagEditor = (props: {
 		<div>
 			<div class="fx">
 				<InputAutoWidth
-					ref={(r) => {
-						editingIpt = r;
-						// if (_ref) {
-						// 	// @ts-ignore
-						// 	typeof _ref === 'function' ? _ref(r) : (_ref = r);
-						// }
-					}}
+					disabled={disabled}
+					ref={(r) => (editingIpt = r)}
 					value={recTag().label} // TODO: so just use value instead of defaultValue?
 					placeholder="Edit tag"
 					size={1}

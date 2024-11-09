@@ -4,11 +4,9 @@ import { Persona } from '../types/PersonasPolyfill';
 import { defaultSpaceHost } from './api';
 import { clone } from './js';
 import { Space } from './settings';
-import { TagTree } from './tags';
 import { isServer } from 'solid-js/web';
 
 type StoreValue = {
-	tagTree: TagTree;
 	personas: Persona[];
 	fetchedSpaces: Record<string, Space>;
 };
@@ -21,9 +19,10 @@ interface IDBSchema extends DBSchema {
 
 export let db: IDBPDatabase<IDBSchema>;
 export const defaultIdbStore: StoreValue = {
-	tagTree: { parents: {}, loners: [] },
 	personas: [{ id: '', spaceHosts: [defaultSpaceHost] }],
-	fetchedSpaces: {},
+	fetchedSpaces: {
+		[defaultSpaceHost]: { host: '', tagTree: { parents: {}, loners: [] } },
+	},
 };
 
 const ajv = new Ajv({ verbose: true });

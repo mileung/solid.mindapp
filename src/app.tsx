@@ -6,184 +6,127 @@ import { FileRoutes } from '@solidjs/start/router';
 import { createEffect, createSignal, onMount, Suspense } from 'solid-js';
 import '~/styles/root.css';
 import '~/utils/theme';
-import { setTheme } from '~/utils/theme';
+import { setThemeMode } from '~/utils/theme';
 import Header from './components/Header';
 import { Author } from './types/Author';
 import { buildUrl, hostedLocally, makeUrl, ping } from './utils/api';
 import { getCookie } from './utils/cookies';
-import { getIdbStore, updateIdbStore } from './utils/indexedDb';
 import { clone } from './utils/js';
 import { hashItem } from './utils/security';
 import { RootSettings, Space, WorkingDirectory } from './utils/settings';
 import { sendMessage } from './utils/signing';
 import {
-	useActiveSpace,
+	authors,
+	authorsSet,
 	fetchedSpaces,
 	fetchedSpacesSet,
 	personas,
 	personasSet,
+	retryJoiningHost,
+	retryJoiningHostSet,
 	rootSettingsSet,
-	tagTree,
-	tagTreeSet,
-	theme,
-	themeSet,
+	themeMode,
+	themeModeSet,
+	useActiveSpace,
+	useTagTree,
 	workingDirectorySet,
 } from './utils/state';
 import { TagTree } from './utils/tags';
+import { getIdbStore, updateIdbStore } from './utils/indexedDb';
 
 export default function App() {
 	const [idbLoaded, idbLoadedSet] = createSignal(false);
-	// const prefersDark = usePrefersDark();
-	// createEffect(() => {
-	// 	console.log('test');
-	// });
+	onMount(async () => {
+		const initialIdbStore = await getIdbStore();
+		personasSet(initialIdbStore.personas);
+		fetchedSpacesSet(initialIdbStore.fetchedSpaces);
+		idbLoadedSet(true);
 
-	// createEffect(() => {
-	// 	if (!personas[0].id) return;
-	// 	if (hostedLocally) {
-	// 		ping<TagTree>(
-	// 			makeUrl('receive-blocks'), //
-	// 			post({ personaId: personas[0].id }),
-	// 		).catch((err) => console.error(err));
-	// 	} else {
-	// 		const mnemonic = getMnemonic(personas[0].id);
-	// 		const { walletAddress } = personas[0];
-	// 		if (walletAddress && mnemonic) {
-	// 			tokenNetwork.receiveBlocks(walletAddress, mnemonic);
-	// 		}
-	// 	}
-	// }, [personas[0].id]);
-
-	createEffect(() => {
+		const cookieTheme = getCookie('theme');
+		themeModeSet((cookieTheme?.startsWith('system') ? 'system' : cookieTheme) || 'system');
 		// does not exist on older browsers
 		if (window?.matchMedia('(prefers-color-scheme: dark)')?.addEventListener) {
 			window?.matchMedia('(prefers-color-scheme: dark)')?.addEventListener('change', () => {
-				setTheme(theme());
+				setThemeMode(themeMode());
 			});
 		}
-	});
-
-	onMount(() => {
-		const cookieTheme = getCookie('theme');
-		themeSet((cookieTheme?.startsWith('system') ? 'system' : cookieTheme) || 'system');
-	});
-	createEffect(() => setTheme(theme()));
-
-	createEffect(() => {
-		if (!hostedLocally) return;
-		ping<{ rootSettings: RootSettings; workingDirectory: WorkingDirectory }>(
-			makeUrl('get-root-settings'),
-		)
-			.then(({ rootSettings, workingDirectory }) => {
-				rootSettingsSet(rootSettings);
-				workingDirectorySet(workingDirectory);
-			})
-			.catch((err) => console.error(err));
-		ping<WorkingDirectory>(makeUrl('get-working-directory'))
-			.then((data) => workingDirectorySet(data))
-			.catch((err) => console.error(err));
-		// ping<Persona[]>(
-		// 	makeUrl('get-personas'),
-		// 	post({
-		// 		order: getLocalState().personas.map(({ id }) => id),
-		// 	}),
-		// )
-		// 	.then((p) => {
-		// 		// console.log('p:', p);
-		// 		personasSet(p);
-		// 		localStateSet((old) => ({ ...old, personas: p }));
-		// 	})
-		// 	.catch((err) => console.error(err));
-	});
-
-	createEffect(() => {
-		const { host } = useActiveSpace();
-		const savedTagTree = fetchedSpaces[host]?.tagTree;
-		savedTagTree && tagTreeSet(savedTagTree);
-		if (!host) {
-			hostedLocally &&
-				ping<TagTree>(makeUrl('get-tag-tree'))
-					.then((data) => {
-						// console.log('data:', data);
-						tagTreeSet(data);
-					})
-					.catch((err) => console.error(err));
-		} else {
-			const { id, name, frozen, walletAddress, writeDate, signature } = personas[0];
-			// const tagTreeHash = savedTagTree && hashItem(savedTagTree);
-			// console.log('tagTreeHash:', hashItem('tagTreeHash'));
-
-			// sendMessage<{ space: Omit<Space, 'host'> }>({
-			// 	from: id,
-			// 	to: buildUrl({ host, path: 'update-space-author' }),
-			// 	tagTreeHash,
-			// 	signedAuthor: !id
-			// 		? undefined
-			// 		: {
-			// 				id,
-			// 				name,
-			// 				frozen,
-			// 				walletAddress,
-			// 				writeDate,
-			// 				signature,
-			// 		  },
-			// })
-			// 	.then(({ space }) => {
-			// 		if (!id) space.fetchedSelf = new Author({});
-			// 		fetchedSpacesSet((old) => ({
-			// 			...old,
-			// 			[host]: {
-			// 				...old[host],
-			// 				...space,
-			// 				host,
-			// 			},
-			// 		}));
-			// 		space.tagTree && tagTreeSet(space.tagTree);
-			// 	})
-			// 	.catch((err) => {
-			// 		fetchedSpacesSet((old) => ({
-			// 			...old,
-			// 			[host]: { ...old[host], fetchedSelf: null },
-			// 		}));
-			// 	});
+		if (hostedLocally) {
+			const tagTree = await ping<TagTree>(makeUrl('get-tag-tree'));
+			fetchedSpacesSet((old) => {
+				old[''] = { host: '', tagTree };
+				return clone(old);
+			});
+			const { rootSettings, workingDirectory } = await ping<{
+				rootSettings: RootSettings;
+				workingDirectory: WorkingDirectory;
+			}>(makeUrl('get-root-settings'));
+			rootSettingsSet(rootSettings);
+			workingDirectorySet(workingDirectory);
 		}
 	});
+	createEffect(() => {
+		// TODO: this is not efficient but the clones are needed to trigger this function idk y
+		const newStore = clone({ personas, fetchedSpaces });
+		updateIdbStore(newStore);
+	});
 
-	// createEffect(() => {
-	// 	authorsSet((old) => {
-	// 		personas.forEach((p) => {
-	// 			if (p.id && p.name) old[p.id] = { ...old[p.id], ...p };
-	// 		});
-	// 		return { ...old };
-	// 	});
-	// 	localStateSet((old) => ({ ...old, personas }));
-	// 	if (hostedLocally) {
-	// 		// TODO: Only update the persona that has its name changed?
-	// 		ping(makeUrl('update-personas'), post({ personas: personas.filter((p) => !p.locked) })) //
-	// 			.catch((err) => console.error(err));
-	// 	}
-	// }, [personas]);
-
-	// createEffect(() => {
-	// 	localStateSet((old) => ({ ...old, fetchedSpaces }));
-	// }, [fetchedSpaces]);
-
-	onMount(async () => {
-		const initialIdbStore = await getIdbStore();
-		idbLoadedSet(true);
-		personasSet(initialIdbStore.personas);
-		fetchedSpacesSet(initialIdbStore.fetchedSpaces);
-		tagTreeSet(initialIdbStore.tagTree);
+	createEffect((prev) => {
+		if (!idbLoaded()) return;
+		const authorsStr1 = JSON.stringify(authors);
+		if (prev === authorsStr1) return authorsStr1;
+		authorsSet((old) => {
+			personas.forEach((p) => (old[p.id] = { ...old[p.id], ...p }));
+			return clone(old);
+		});
+		const authorsStr2 = JSON.stringify(authors);
+		return authorsStr2;
 	});
 
 	createEffect(() => {
-		// TODO: this is not efficient but the clones are needed to trigger this function idk y
-		const newStore = clone({
-			personas,
-			fetchedSpaces,
-			tagTree,
-		});
-		updateIdbStore(newStore);
+		if (!personas[0].id) return;
+		// const mnemonic = getMnemonic(personas[0].id);
+		// const { walletAddress } = personas[0];
+		// if (walletAddress && mnemonic) {
+		// 	tokenNetwork.receiveBlocks(walletAddress, mnemonic);
+		// }
+	});
+
+	createEffect((lastHost) => {
+		let { host } = useActiveSpace();
+		if (!host || (lastHost === host && !retryJoiningHost())) return host;
+		if (retryJoiningHost()) host = retryJoiningHost();
+		retryJoiningHostSet('');
+		const { id, name, frozen, walletAddress, writeDate, signature } = personas[0];
+		const tagTreeHash = hashItem(useTagTree());
+		sendMessage<{ space: Omit<Space, 'host'> }>({
+			from: id,
+			to: buildUrl({ host, path: 'update-space-author' }),
+			tagTreeHash,
+			signedAuthor: !id
+				? undefined
+				: {
+						id,
+						name,
+						frozen,
+						walletAddress,
+						writeDate,
+						signature,
+				  },
+		})
+			.then(({ space }) => {
+				if (!id) space.fetchedSelf = new Author({});
+				fetchedSpacesSet((old) => ({
+					...old,
+					[host]: { ...old[host], ...space, host },
+				}));
+			})
+			.catch((err) => {
+				fetchedSpacesSet((old) => ({
+					...old,
+					[host]: { ...old[host], fetchedSelf: null },
+				}));
+			});
+		return host;
 	});
 
 	return (

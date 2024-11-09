@@ -1,8 +1,10 @@
 import { setCookie } from './cookies';
+import { themeModeSet } from './state';
 
 export const isDarkMode = () => document.documentElement.classList.contains('dark');
 
-export const setTheme = (mode: string) => {
+export const setThemeMode = (mode: string) => {
+	themeModeSet(mode);
 	const systemTheme = mode === 'system';
 	const systemThemeIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 	let theme = 'dark';

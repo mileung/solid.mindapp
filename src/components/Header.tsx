@@ -15,7 +15,7 @@ import {
 import { createEffect, createMemo, createSignal } from 'solid-js';
 import { Persona } from '../types/PersonasPolyfill';
 import { hostedLocally, localApiHost, makeUrl, ping } from '../utils/api';
-import { shortenString } from '../utils/js';
+import { clone, shortenString } from '../utils/js';
 import { useKeyPress } from '../utils/keyboard';
 import { Space } from '../utils/settings';
 import {
@@ -26,7 +26,7 @@ import {
 	rootSettings,
 	tagMapOpen,
 	tagMapOpenSet,
-	tagTree,
+	useTagTree,
 } from '../utils/state';
 import {
 	bracketRegex,
@@ -80,8 +80,8 @@ export default function Header() {
 		searchedText().trim().replace(bracketRegex, '').replace(/\s\s+/g, ' ').trim(),
 	);
 
-	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
-	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
+	const allTags = createMemo(() => listAllTags(getTagRelations(useTagTree())));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(useTagTree()));
 	const suggestedTags = createMemo(() => {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(addedTags());
@@ -315,8 +315,6 @@ export default function Header() {
 													onMouseDown={(e) => e.preventDefault()}
 													class="w-44 pl-2 h-11 fx"
 													onClick={() => {
-														switchingSpacesSet(false);
-														switchingPersonasSet(false);
 														if (switchingPersonas() && thing.id && thing.locked) {
 															return navigate(`/unlock/${thingKey}`);
 														}
@@ -326,7 +324,7 @@ export default function Header() {
 																	0,
 																	0,
 																	old[0].spaceHosts.splice(
-																		old[0].spaceHosts.findIndex((h) => h === (thing?.host || '')),
+																		old[0].spaceHosts.findIndex((h) => h === thingKey),
 																		1,
 																	)[0],
 																);
@@ -335,12 +333,14 @@ export default function Header() {
 																	0,
 																	0,
 																	old.splice(
-																		old.findIndex((p) => p.id === thing.id),
+																		old.findIndex((p) => p.id === thingKey),
 																		1,
 																	)[0],
 																);
 															}
-															return [...old];
+															switchingSpacesSet(false);
+															switchingPersonasSet(false);
+															return clone(old);
 														});
 													}}
 												>
@@ -424,13 +424,11 @@ export default function Header() {
 										Manage {switchingSpaces() ? 'spaces' : 'personas'}
 									</p>
 								</a>
-								{!switchingSpaces && (
+								{!switchingSpaces() && (
 									<button
 										class="w-full border-t border-mg2 h-10 fx transition hover:bg-mg2 px-2 py-1"
 										onMouseDown={(e) => e.preventDefault()}
 										onClick={() => {
-											switchingSpacesSet(false);
-											switchingPersonasSet(false);
 											if (hostedLocally) {
 												ping(makeUrl('lock-all-personas')).catch((err) => alert(err));
 											}
@@ -446,7 +444,9 @@ export default function Header() {
 														1,
 													)[0],
 												);
-												return [...old];
+												switchingSpacesSet(false);
+												switchingPersonasSet(false);
+												return clone(old);
 											});
 											navigate('/');
 										}}

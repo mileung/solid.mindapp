@@ -6,7 +6,7 @@ import { createMemo, createSignal } from 'solid-js';
 import { SignedAuthor } from '~/types/Author';
 import { buildUrl, hostedLocally, localApiHost, makeUrl, ping, post } from '~/utils/api';
 import { Thought } from '~/utils/ClientThought';
-import { isStringifiedRecord } from '~/utils/js';
+import { clone, isStringifiedRecord } from '~/utils/js';
 import { useKeyPress } from '~/utils/keyboard';
 import { getSignature, sendMessage } from '~/utils/signing';
 import {
@@ -14,8 +14,9 @@ import {
 	authorsSet,
 	mentionedThoughtsSet,
 	personas,
-	tagTree,
-	tagTreeSet,
+	fetchedSpacesSet,
+	fetchedSpaces,
+	useTagTree,
 } from '~/utils/state';
 import {
 	getTagRelations,
@@ -65,9 +66,11 @@ export const ThoughtWriter = (props: {
 	let tagXs: (null | HTMLButtonElement)[] = [];
 	const tagSuggestionsRefs: (null | HTMLButtonElement)[] = [];
 
+	// TODO: For users hosting mindapp locally, indicate wherever tags are displayed which tags overlap between local and global space tags trees, tags that are specific  to the space, and tags specific to the local space
+
 	const trimmedFilter = createMemo(() => tagFilter().trim());
-	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
-	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
+	const allTags = createMemo(() => listAllTags(getTagRelations(useTagTree())));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(useTagTree()));
 	const suggestedTags = createMemo(() => {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(addedTags());
@@ -160,7 +163,12 @@ export const ThoughtWriter = (props: {
 					// console.log('res:', res);
 					if (!useActiveSpace().host) {
 						ping<TagTree>(makeUrl('get-tag-tree'))
-							.then((data) => tagTreeSet(data))
+							.then((data) => {
+								fetchedSpacesSet((old) => {
+									old[personas[0].spaceHosts[0]].tagTree = data;
+									return clone(old);
+								});
+							})
 							.catch((err) => alert(err));
 					}
 				})

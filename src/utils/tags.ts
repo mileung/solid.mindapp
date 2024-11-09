@@ -1,3 +1,5 @@
+import { useTagTree } from './state';
+
 export type TagTree = {
 	parents: Record<string, string[]>;
 	loners: string[];
@@ -36,7 +38,7 @@ export function shouldBeLoner(tagTree: TagTree, tag: string) {
 }
 
 export function makeRootTag(tagTree: TagTree, label: string) {
-	if (!tagTree.loners.includes(label) && shouldBeLoner(tagTree, label)) return null;
+	if (!tagTree.loners.includes(label) && shouldBeLoner(useTagTree(), label)) return null;
 
 	const expand = (label: string, parentLineage: string[] = []): RecursiveTag => {
 		const subTags = tagTree.parents[label];
@@ -105,7 +107,7 @@ export function getAllSubTags(tagTree: TagTree, tag: string): string[] {
 }
 
 export function scrubTagTree(tagTree: TagTree): TagTree {
-	const privateTags = new Set(getAllSubTags(tagTree, 'Private Tag'));
+	const privateTags = new Set(getAllSubTags(useTagTree(), 'Private Tag'));
 
 	const scrubbedTagTree: TagTree = {
 		parents: {},

@@ -11,19 +11,33 @@ import { Author } from '~/types/Author';
 import { buildUrl, hostedLocally, localApiHost } from '~/utils/api';
 import { Space } from '~/utils/settings';
 import { sendMessage } from '~/utils/signing';
-import { fetchedSpaces, fetchedSpacesSet, personas, personasSet } from '~/utils/state';
+import {
+	fetchedSpaces,
+	fetchedSpacesSet,
+	personas,
+	personasSet,
+	retryJoiningHostSet,
+	useTagTree,
+} from '~/utils/state';
 import { formatTimestamp } from '~/utils/time';
 import { createTitle } from '..';
 import { clone } from '~/utils/js';
+import { hashItem } from '~/utils/security';
 
 export default function ManageSpaces() {
+	let hostIpt: undefined | HTMLInputElement;
 	const spaceHost = createMemo(() => useParams().spaceHost);
 	createTitle(() => spaceHost() || 'Spaces');
 	const navigate = useNavigate();
 	const fetchedSpace = createMemo(() =>
 		spaceHost() ? fetchedSpaces[spaceHost()] || { host: spaceHost() } : undefined,
 	);
-	let hostIpt: undefined | HTMLInputElement;
+	createEffect(() => {
+		if (spaceHost() && !personas[0].spaceHosts.includes(spaceHost())) {
+			navigate('/spaces');
+		}
+	});
+
 	const joinSpace = () => {
 		const newSpaceHost = hostIpt?.value.trim().toLowerCase();
 		if (
@@ -33,19 +47,12 @@ export default function ManageSpaces() {
 		) {
 			return alert('Host already added');
 		}
-		personasSet((o) => {
-			const old = clone(o);
-			old[0]?.spaceHosts.unshift(newSpaceHost);
-			return [...old];
+		personasSet((old) => {
+			old[0].spaceHosts.unshift(newSpaceHost);
+			return clone(old);
 		});
 		setTimeout(() => navigate(`/spaces/${newSpaceHost}`), 0);
 	};
-
-	createEffect(() => {
-		if (spaceHost() && !personas[0].spaceHosts.includes(spaceHost())) {
-			navigate('/spaces');
-		}
-	});
 
 	return (
 		<div class="flex">
@@ -65,16 +72,18 @@ export default function ManageSpaces() {
 										}`}
 									>
 										<DeterministicVisualId
-											input={fetchedSpace()! || { host }}
+											input={fetchedSpaces[host] || { host }}
 											class="h-6 w-6 overflow-hidden rounded"
 										/>
 										<div class="flex-1 mx-2 truncate">
 											<p
 												class={`text-lg font-semibold leading-5 truncate ${
-													!fetchedSpace()?.name && 'text-fg2'
+													!fetchedSpaces[host]?.name && 'text-fg2'
 												}`}
 											>
-												{fetchedSpace()?.fetchedSelf ? fetchedSpace()!.name || 'No name' : '...'}
+												{fetchedSpaces[host]?.fetchedSelf
+													? fetchedSpaces[host]?.name || 'No name'
+													: '...'}
 											</p>
 											<p class="font-mono text-fg2 leading-5 truncate">{host}</p>
 										</div>
@@ -99,52 +108,7 @@ export default function ManageSpaces() {
 					!fetchedSpace()!.fetchedSelf ? (
 						<div class="space-y-2">
 							<p class="text-2xl font-semibold">Unable to join {fetchedSpace()!.host}</p>
-							<Button
-								label="Try again"
-								onClick={async () => {
-									// navigate('/spaces');
-									// TODO: make this and App.tsx simpler
-									// fetchedSpacesSet((old) => {
-									// 	delete old[spaceHost()!];
-									// 	return { ...old };
-									// });
-									// if (spaceHost()) {
-									// 	try {
-									// 		const { id, name, frozen, walletAddress, writeDate, signature } = personas[0];
-									// 		const { space } = await sendMessage<{ space: Omit<Space, 'host'> }>({
-									// 			from: id,
-									// 			to: buildUrl({ host: spaceHost(), path: 'update-space-author' }),
-									// 			signedAuthor: !id
-									// 				? undefined
-									// 				: {
-									// 						id,
-									// 						name,
-									// 						frozen,
-									// 						walletAddress,
-									// 						writeDate,
-									// 						signature,
-									// 				  },
-									// 		});
-									// 		// console.log('space:', space);
-									// 		if (!id) space.fetchedSelf = new Author({});
-									// 		fetchedSpacesSet((old) => ({
-									// 			...old,
-									// 			[spaceHost()]: { host: spaceHost(), ...space },
-									// 		}));
-									// 	} catch (error) {
-									// 		console.log('error:', error);
-									// 		fetchedSpacesSet((old) => ({
-									// 			...old,
-									// 			[spaceHost()]: {
-									// 				host: spaceHost(),
-									// 				fetchedSelf: null,
-									// 				tagTree: { parents: {}, loners: [] },
-									// 			},
-									// 		}));
-									// 	}
-									// }
-								}}
-							/>
+							<Button label="Try again" onClick={() => retryJoiningHostSet(spaceHost())} />
 							<Button
 								label="Remove space"
 								onClick={() => {
@@ -154,7 +118,7 @@ export default function ManageSpaces() {
 											old[0].spaceHosts.findIndex((h) => h === spaceHost()),
 											1,
 										);
-										return [...old];
+										return clone(old);
 									});
 								}}
 							/>
@@ -223,12 +187,11 @@ export default function ManageSpaces() {
 										});
 									}
 									personasSet((old) => {
-										const newPersonas = clone(old);
-										newPersonas[0].spaceHosts.splice(
-											newPersonas[0].spaceHosts.findIndex((h) => h === spaceHost()),
+										old[0].spaceHosts.splice(
+											old[0].spaceHosts.findIndex((h) => h === spaceHost()),
 											1,
 										);
-										return newPersonas;
+										return clone(old);
 									});
 									fetchedSpacesSet((old) => {
 										delete old[spaceHost()];
@@ -279,18 +242,20 @@ export default function ManageSpaces() {
 	);
 }
 
-function NameTag({ id, name }: { id?: string; name?: string }) {
-	return id === '' ? (
+function NameTag(props: { id?: string; name?: string }) {
+	return props.id === '' ? (
 		<p class="text-xl text-fg2 font-semibold leading-5">Anon</p>
 	) : (
 		<div class="flex gap-3 mt-1">
 			<DeterministicVisualId
-				input={id}
+				input={props.id}
 				class="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full"
 			/>
 			<div>
-				<p class={`leading-5 font-bold text-xl ${!name && 'text-fg2'} `}>{name || 'No name'}</p>
-				<p class="text-lg text-fg2 font-semibold break-all">{id}</p>
+				<p class={`leading-5 font-bold text-xl ${!props.name && 'text-fg2'} `}>
+					{props.name || 'No name'}
+				</p>
+				<p class="text-lg text-fg2 font-semibold break-all">{props.id}</p>
 			</div>
 		</div>
 	);

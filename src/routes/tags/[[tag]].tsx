@@ -1,6 +1,15 @@
+import { A, useLocation, useNavigate, useParams } from '@solidjs/router';
+import { matchSorter } from 'match-sorter';
+import { Icon } from 'solid-heroicons';
 import { chevronRight, plus } from 'solid-heroicons/solid-mini';
-import { tagTree, tagTreeSet } from '~/utils/state';
+import { createMemo, createSignal } from 'solid-js';
+import InputAutoWidth from '~/components/InputAutoWidth';
+import TagEditor from '~/components/TagEditor';
 import { hostedLocally, makeUrl, ping, post } from '~/utils/api';
+import { clone, copyToClipboardAsync } from '~/utils/js';
+import { useKeyPress } from '~/utils/keyboard';
+import { debounce } from '~/utils/performance';
+import { fetchedSpacesSet, personas, useActiveSpace, useTagTree } from '~/utils/state';
 import {
 	TagTree,
 	getParentsMap,
@@ -10,15 +19,6 @@ import {
 	scrubTagTree,
 	sortKeysByNodeCount,
 } from '~/utils/tags';
-import TagEditor from '~/components/TagEditor';
-import { debounce } from '~/utils/performance';
-import { useKeyPress } from '~/utils/keyboard';
-import { matchSorter } from 'match-sorter';
-import InputAutoWidth from '~/components/InputAutoWidth';
-import { clone, copyToClipboardAsync } from '~/utils/js';
-import { A, useNavigate, useParams } from '@solidjs/router';
-import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
-import { Icon } from 'solid-heroicons';
 
 // TODO: the owner of communal spaces can edit this page
 // Viewers of the space can send their current tag tree and the api returns
@@ -31,48 +31,47 @@ import { Icon } from 'solid-heroicons';
 // and the server will send back an up to date tag tree if the hash of its tag tree doesn't match
 
 export default function Tags() {
-	const navigate = useNavigate();
-	const decodedTag = createMemo(() => decodeURIComponent(useParams().tag || ''));
-	const [parentTagFilter, parentTagFilterSet] = createSignal('');
-	const [tagFilter, tagFilterSet] = createSignal('');
-	const [parentTagIndex, parentTagIndexSet] = createSignal<number>(0);
-	const [tagIndex, tagIndexSet] = createSignal<null | number>(decodedTag() ? null : 0);
+	let lastTagParam = '';
 	let addParentBtn: undefined | HTMLButtonElement;
 	let searchIpt: undefined | HTMLInputElement;
 	let parentTagIpt: undefined | HTMLInputElement;
 	let rootTagIpt: undefined | HTMLInputElement;
 	const tagSuggestionsRefs: (null | HTMLAnchorElement)[] = [];
 	const parentTagSuggestionsRefs: (null | HTMLButtonElement)[] = [];
+
+	const [tagFilter, tagFilterSet] = createSignal('');
+
+	const disableTagEdits = createMemo(() => !!useActiveSpace().host);
+	const decodedTag = createMemo(() => decodeURIComponent(useParams().tag || ''));
+	const trimmedTagFilter = createMemo(() => tagFilter().trim());
+	const tagRelations = createMemo(() => getTagRelations(useTagTree()));
+	const allTags = createMemo(() => listAllTags(tagRelations()));
+	const allTagsSet = createMemo(() => new Set(allTags()));
+
+	const [parentTagFilter, parentTagFilterSet] = createSignal('');
+	const [parentTagIndex, parentTagIndexSet] = createSignal<number>(0);
+	const [tagIndex, tagIndexSet] = createSignal<null | number>(decodedTag() ? null : 0);
 	const [subTaggingLineage, subTaggingLineageSet] = createSignal<string[]>([]);
 	const [suggestParentTags, suggestParentTagsSet] = createSignal(false);
 	const [addingParent, addingParentSet] = createSignal(false);
-	let lastTagParam = '';
 
-	const trimmedTagFilter = createMemo(() => tagFilter().trim());
-	const tagRelations = createMemo(() => getTagRelations(tagTree));
-	const allTags = createMemo(() => listAllTags(tagRelations()));
-	const allTagsSet = createMemo(() => new Set(allTags()));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(useTagTree()).reverse());
 	const tagToAdd = createMemo(() =>
 		allTagsSet().has(trimmedTagFilter()) ? '' : trimmedTagFilter(),
 	);
-
-	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree).reverse());
 	const filteredTags = createMemo(() => {
 		const filter = trimmedTagFilter().replace(/\s+/g, ' ');
-		return !filter
-			? defaultTags()
-			: allTags() && matchSorter(allTags(), filter).slice(0, 99).concat(tagToAdd());
+		return !filter ? defaultTags() : matchSorter(allTags(), filter).slice(0, 99).concat(tagToAdd());
 	});
-	const parentsMap = createMemo(() => tagTree && getParentsMap(tagTree));
+	const parentsMap = createMemo(() => useTagTree() && getParentsMap(useTagTree()));
 	const rootParents = createMemo(() => {
 		const str = decodedTag();
 		return (str && parentsMap()?.[str]) || null;
 	});
 	const rootTag = createMemo(() => {
 		const str = decodedTag();
-		return str ? makeRootTag(tagTree, str) : null;
+		return str ? makeRootTag(useTagTree(), str) : null;
 	});
-
 	const suggestedParentTags = createMemo(() => {
 		const trimmedParentTagFilter = parentTagFilter().trim();
 		const filter = trimmedParentTagFilter.replace(/\s+/g, ' ');
@@ -86,70 +85,72 @@ export default function Tags() {
 		return [...new Set(arr)].filter((tag) => !addedTagsSet.has(tag));
 	});
 
+	const navigate = useNavigate();
 	const replaceTag = (tag?: string) => {
 		navigate(!tag ? '/tags' : `/tags/${encodeURIComponent(tag)}`, { replace: true });
 	};
 	const debouncedReplaceTag = debounce((tag?: string) => replaceTag(tag), 100);
 
-	const refreshTagTree = (rootTagLabel: string, ignoreTagFilter = false) => {
-		if (!hostedLocally) return alert('Run Mindapp locally to edit tags');
+	const refreshTagTree = () => {
+		if (disableTagEdits()) return alert('Editing tags disabled');
+		tagIndexSet(null);
 		ping<TagTree>(makeUrl('get-tag-tree'))
 			.then((data) => {
-				tagTreeSet(clone(data));
-				// const newNodesArr = listAllTags(getTagRelations(data));
-				// const newSuggestedTags =
-				// 	ignoreTagFilter || !tagFilter() ? newNodesArr : matchSorter(newNodesArr, tagFilter());
-				// const i = newSuggestedTags.indexOf(rootTagLabel);
-				// tagIndexSet(i === -1 ? 0 : i);
+				fetchedSpacesSet((old) => {
+					old[personas[0].spaceHosts[0]].tagTree = data;
+					return clone(old);
+				});
 			})
 			.catch((err) => alert(err));
 	};
 
 	const addRootTag = (newTag: string, ctrlKey: boolean, altKey: boolean) => {
-		if (!hostedLocally) return alert('Run Mindapp locally to edit tags');
+		if (disableTagEdits()) return alert('Editing tags disabled');
 		altKey && tagFilterSet('');
 		subTaggingLineageSet(ctrlKey ? [newTag] : []);
 		ping(makeUrl('add-tag'), post({ tag: newTag }))
-			.then(() => refreshTagTree(newTag, altKey))
+			.then(() => refreshTagTree())
 			.catch((err) => alert(err));
 	};
 
 	const addParentTag = (e: KeyboardEvent | MouseEvent, parentTag: string) => {
-		if (!hostedLocally) return alert('Run Mindapp locally to edit tags');
+		if (disableTagEdits()) return alert('Editing tags disabled');
 		if (!rootTag()?.label || !parentTag) return;
 		!e.altKey && addingParentSet(false);
 		parentTagFilterSet('');
 		parentTagIndexSet(0);
 		tagIndexSet(null);
 		return ping(makeUrl('add-tag'), post({ tag: rootTag()?.label, parentTag }))
-			.then(() => refreshTagTree(rootTag()!.label))
+			.then(() => refreshTagTree())
 			.catch((err) => alert(err));
 	};
 
 	const addSubtag = (tag: string, parentTag: string, newSubTaggingLineage: string[]) => {
-		if (!hostedLocally) return alert('Run Mindapp locally to edit tags');
+		if (disableTagEdits()) return alert('Editing tags disabled');
 		subTaggingLineageSet(newSubTaggingLineage);
 		!newSubTaggingLineage && searchIpt?.focus();
 		return ping(makeUrl('add-tag'), post({ tag, parentTag }))
-			.then(() => refreshTagTree(rootTag()!.label))
+			.then(() => refreshTagTree())
 			.catch((err) => alert(err));
 	};
 
 	const renameTag = async (oldTag: string, newTag: string, newSubTaggingLineage: string[]) => {
-		if (!hostedLocally) return alert('Run Mindapp locally to edit tags');
+		if (disableTagEdits()) return alert('Editing tags disabled');
+		replaceTag(newTag);
 		subTaggingLineageSet(newSubTaggingLineage);
 		return (
 			ping(makeUrl('rename-tag'), post({ oldTag, newTag }))
-				.then(() => refreshTagTree(rootTag()!.label === oldTag ? newTag : rootTag()!.label))
+				.then(() => refreshTagTree())
 				// .then(() => searchIpt?.focus())
 				.catch((err) => alert(err))
 		);
 	};
 
 	const removeTag = (tag: string, parentTag?: string) => {
-		if (!hostedLocally) return alert('Run Mindapp locally to edit tags');
+		if (disableTagEdits()) return alert('Editing tags disabled');
+
 		return ping(makeUrl('remove-tag'), post({ tag, parentTag }))
-			.then(() => refreshTagTree(rootTag()!.label))
+			.then(() => refreshTagTree())
 			.then(() => searchIpt?.focus())
 			.catch((err) => alert(err));
 	};
@@ -184,18 +185,6 @@ export default function Tags() {
 	useKeyPress({ key: 'ArrowDown', allowRepeats: true }, onArrowUpOrDown);
 	useKeyPress({ key: 'ArrowUp', allowRepeats: true }, onArrowUpOrDown);
 
-	createEffect(() => {
-		if (tagFilter() && !tagIndex()) {
-			// debouncedReplaceTag();
-		}
-	});
-
-	createEffect(() => {
-		if (!tagFilter() && tagIndex() !== null && tagIndex() !== -1) {
-			debouncedReplaceTag(filteredTags()[tagIndex()!]);
-		}
-	});
-
 	return (
 		<div class="flex">
 			<div class="flex-1 relative min-w-80 max-w-[30rem]">
@@ -217,8 +206,8 @@ export default function Tags() {
 								e.preventDefault();
 								addParentBtn!.focus();
 							}
-							if (e.key === 'Enter' && filteredTags() && tagIndex() !== null) {
-								if (filteredTags()![tagIndex()!] === tagToAdd()) {
+							if (e.key === 'Enter') {
+								if (!rootTag()) {
 									addRootTag(tagToAdd(), e.ctrlKey, e.altKey);
 								} else {
 									e.preventDefault();
@@ -290,8 +279,8 @@ export default function Tags() {
 						<button
 							class="border-t border-mg2 pl-3 text-xl w-full font-medium transition text-fg2 hover:text-fg1"
 							onClick={() => {
-								if (tagTree) {
-									const publicTagTree = scrubTagTree(tagTree);
+								if (useTagTree()) {
+									const publicTagTree = scrubTagTree(useTagTree());
 									copyToClipboardAsync(JSON.stringify(publicTagTree, null, 2));
 								}
 							}}
@@ -321,6 +310,7 @@ export default function Tags() {
 							{!addingParent() ? (
 								<button
 									ref={addParentBtn}
+									disabled={disableTagEdits()}
 									class="text-lg font-semibold rounded px-2 border-2 transition hover:text-fg1 text-fg2 border-fg2"
 									onClick={() => addingParentSet(true)}
 									onKeyDown={(e) => {
@@ -419,6 +409,7 @@ export default function Tags() {
 								))}
 						</div>
 						<TagEditor
+							disabled={disableTagEdits()}
 							subTaggingLineage={subTaggingLineage}
 							_ref={rootTagIpt}
 							// @ts-ignore

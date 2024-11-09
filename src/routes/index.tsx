@@ -9,7 +9,7 @@ import Drawer from '~/components/Drawer';
 import RecTagLink from '~/components/RecTagLink';
 import Results from '~/components/Results';
 import { hostedLocally } from '~/utils/api';
-import { rootSettings, tagMapOpen, tagMapOpenSet, tagTree } from '~/utils/state';
+import { rootSettings, tagMapOpen, tagMapOpenSet, useTagTree } from '~/utils/state';
 import {
 	getTagRelations,
 	listAllTags,
@@ -37,21 +37,21 @@ export default function Home() {
 	let tagMapDiv: undefined | HTMLDivElement;
 	let tagMapDiv2: undefined | HTMLDivElement;
 
-	const allTags = createMemo(() => listAllTags(getTagRelations(tagTree)));
-	const defaultTags = createMemo(() => sortKeysByNodeCount(tagTree));
+	const allTags = createMemo(() => listAllTags(getTagRelations(useTagTree())));
+	const defaultTags = createMemo(() => sortKeysByNodeCount(useTagTree()));
 	const filteredTags = createMemo(() => {
 		const filter = tagFilter().trim().replace(/\s+/g, ' ');
 		return !filter ? defaultTags() : allTags() && matchSorter(allTags(), filter).slice(0, 99);
 	});
 	const focusedTag = createMemo(() => searchedTags().length === 1 && searchedTags()[0]);
-	const parentsMap = createMemo(() => tagTree && getParentsMap(tagTree));
+	const parentsMap = createMemo(() => useTagTree() && getParentsMap(useTagTree()));
 	const rootParents = createMemo(() => {
 		const str = focusedTag();
 		return (str && parentsMap()?.[str]) || null;
 	});
 	const rootTag = createMemo(() => {
 		const str = focusedTag();
-		return tagTree && str ? makeRootTag(tagTree, str) : null;
+		return useTagTree() && str ? makeRootTag(useTagTree(), str) : null;
 	});
 
 	const onTagClick = (e: MouseEvent) => {
@@ -82,7 +82,9 @@ export default function Home() {
 					{focusedTag() && !tagFilter() ? (
 						<div class="">
 							<div class="fx flex-wrap gap-1 bg-bg2">
-								{tagTree && !rootParents() && <p class="xy flex-grow text-fg2">No parent tags</p>}
+								{useTagTree() && !rootParents() && (
+									<p class="xy flex-grow text-fg2">No parent tags</p>
+								)}
 								{(rootParents() || []).map((name) => {
 									return (
 										<A

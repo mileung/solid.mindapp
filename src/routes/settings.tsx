@@ -2,8 +2,7 @@ import {
 	personasSet,
 	rootSettings,
 	rootSettingsSet,
-	theme,
-	themeSet,
+	themeMode,
 	workingDirectory,
 	workingDirectorySet,
 } from '~/utils/state';
@@ -13,7 +12,8 @@ import { InputPicker } from '~/components/InputPicker';
 import TextInput from '~/components/TextInput';
 import { Icon } from 'solid-heroicons';
 import { arrowTopRightOnSquare } from 'solid-heroicons/solid';
-import { setTheme } from '~/utils/theme';
+import { setThemeMode } from '~/utils/theme';
+import { clone } from '~/utils/js';
 
 export default function Settings() {
 	const updateRootSettings = (update: Partial<RootSettings>) => {
@@ -44,9 +44,9 @@ export default function Settings() {
 					['Light', 'light'],
 					['Dark', 'dark'],
 				]}
-				value={theme}
+				value={themeMode}
 				// @ts-ignore // QUESTION how do I change the type of onSubmit for Settings['theme']
-				onSubmit={(theme) => themeSet(theme)}
+				onSubmit={(mode) => setThemeMode(mode)}
 			/>
 
 			{!hostedLocally ? (
@@ -82,7 +82,7 @@ export default function Settings() {
 										1,
 									)[0],
 								);
-								return [...old];
+								return clone(old);
 							});
 						}}
 					/>
