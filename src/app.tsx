@@ -39,16 +39,18 @@ export default function App() {
 	onMount(async () => {
 		const initialIdbStore = await getIdbStore();
 		personasSet(initialIdbStore.personas);
+		// console.log('initialIdbStore.personas:', initialIdbStore.personas);
 		fetchedSpacesSet(initialIdbStore.fetchedSpaces);
 		idbLoadedSet(true);
 
 		const cookieTheme = getCookie('theme');
 		themeModeSet((cookieTheme?.startsWith('system') ? 'system' : cookieTheme) || 'system');
+		setThemeMode(themeMode());
 		// does not exist on older browsers
 		if (window?.matchMedia('(prefers-color-scheme: dark)')?.addEventListener) {
-			window?.matchMedia('(prefers-color-scheme: dark)')?.addEventListener('change', () => {
-				setThemeMode(themeMode());
-			});
+			window
+				?.matchMedia('(prefers-color-scheme: dark)')
+				?.addEventListener('change', () => setThemeMode(themeMode()));
 		}
 		if (hostedLocally) {
 			const tagTree = await ping<TagTree>(makeUrl('get-tag-tree'));
@@ -67,13 +69,14 @@ export default function App() {
 	createEffect(() => {
 		// TODO: this is not efficient but the clones are needed to trigger this function idk y
 		const newStore = clone({ personas, fetchedSpaces });
+		// console.log('newStore:', newStore);
 		updateIdbStore(newStore);
 	});
 
 	createEffect((prev) => {
 		if (!idbLoaded()) return;
 		const authorsStr1 = JSON.stringify(authors);
-		if (prev === authorsStr1) return authorsStr1;
+		if (prev === authorsStr1) return prev;
 		authorsSet((old) => {
 			personas.forEach((p) => (old[p.id] = { ...old[p.id], ...p }));
 			return clone(old);

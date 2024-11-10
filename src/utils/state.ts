@@ -5,6 +5,7 @@ import { Persona } from '../types/PersonasPolyfill';
 import { Thought } from './ClientThought';
 import { RootSettings, Space, WorkingDirectory } from './settings';
 import { defaultIdbStore } from './indexedDb';
+import { hostedLocally } from './api';
 
 export const [themeMode, themeModeSet] = createSignal<string | 'system' | 'light' | 'dark'>('');
 export const [tagMapOpen, tagMapOpenSet] = createSignal<boolean>(false);
@@ -33,5 +34,5 @@ export function useActiveSpace() {
 }
 
 export function useTagTree() {
-	return useActiveSpace().tagTree || { parents: {}, loners: [] };
+	return (fetchedSpaces[''] || useActiveSpace()).tagTree || { parents: {}, loners: [] };
 }

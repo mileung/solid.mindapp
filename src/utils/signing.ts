@@ -8,30 +8,19 @@ import { SignedAuthor, UnsignedAuthor } from '~/types/Author';
 
 type Item = string | Record<string, any> | any[];
 export async function getSignature(item: Item, personaId?: string) {
-	return '';
-	// if (!personaId) return;
-	// if (hostedLocally) {
-	// 	const { signature } = await ping<{ signature?: string }>(
-	// 		makeUrl('get-signature'),
-	// 		post({ item, personaId }),
-	// 	);
-	// 	return signature;
-	// } else {
-	// 	// console.log(item, personaId);
-	// 	// console.log(new Error().stack);
-	// 	const persona = personas.find((p) => p.id === personaId);
-	// 	if (!persona) throw new Error('Persona not found');
-	// 	if (persona.locked) throw new Error('Persona locked');
-	// 	const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
-	// 	if (!validateMnemonic(decryptedMnemonic, wordlist)) {
-	// 		throw new Error('Something went wrong');
-	// 	}
-	// 	const { publicKey, privateKey } = createKeyPair(decryptedMnemonic);
-	// 	if (publicKey !== personaId) {
-	// 		throw new Error('Mnemonic on file does not correspond to personaId');
-	// 	}
-	// 	return signItem(item, privateKey);
-	// }
+	if (!personaId) return;
+	const persona = personas.find((p) => p.id === personaId);
+	if (!persona) throw new Error('Persona not found');
+	if (persona.locked) throw new Error('Persona locked');
+	const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
+	if (!validateMnemonic(decryptedMnemonic || '', wordlist)) {
+		throw new Error('Something went wrong');
+	}
+	const kp = createKeyPair(decryptedMnemonic!);
+	if (kp.publicKey !== personaId) {
+		throw new Error('Mnemonic on file does not correspond to personaId');
+	}
+	return signItem(item, kp.privateKey);
 }
 
 export async function getSignedAuthor(unsignedAuthor: UnsignedAuthor) {
@@ -55,15 +44,13 @@ export async function sendMessage<T>(message: Message) {
 }
 
 export function getMnemonic(personaId: string) {
-	return '';
-	// if (!personaId) return '';
-	// if (hostedLocally) throw new Error('Cannot call this');
-	// const persona = personas.find((p) => p.id === personaId);
-	// if (!persona) throw new Error('Persona not found');
-	// if (persona.locked) throw new Error('Persona locked');
-	// const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
-	// if (!validateMnemonic(decryptedMnemonic, wordlist)) {
-	// 	throw new Error('Something went wrong');
-	// }
-	// return decryptedMnemonic;
+	if (!personaId) return '';
+	const persona = personas.find((p) => p.id === personaId);
+	if (!persona) throw new Error('Persona not found');
+	if (persona.locked) throw new Error('Persona locked');
+	const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
+	if (!validateMnemonic(decryptedMnemonic || '', wordlist)) {
+		throw new Error('Something went wrong');
+	}
+	return decryptedMnemonic;
 }

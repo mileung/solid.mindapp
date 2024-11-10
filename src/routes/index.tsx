@@ -3,21 +3,20 @@ import { A, useSearchParams } from '@solidjs/router';
 import { matchSorter } from 'match-sorter';
 import { Icon } from 'solid-heroicons';
 import { bars_3 } from 'solid-heroicons/solid-mini';
-import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import { createEffect, createMemo, createSignal, JSX } from 'solid-js';
 import Drawer from '~/components/Drawer';
-import RecTagLink from '~/components/RecTagLink';
 import Results from '~/components/Results';
 import { hostedLocally } from '~/utils/api';
 import { rootSettings, tagMapOpen, tagMapOpenSet, useTagTree } from '~/utils/state';
 import {
-	getTagRelations,
-	listAllTags,
 	getParentsMap,
+	getTagRelations,
 	getTags,
+	listAllTags,
 	makeRootTag,
 	sortKeysByNodeCount,
 } from '~/utils/tags';
+import { RecursiveTag } from '../utils/tags';
 
 const makeTitle = (str: string) => `${str ? `${str} | ` : ''}Mindapp`;
 const createTitle = (str: () => string) => {
@@ -88,7 +87,7 @@ export default function Home() {
 								{(rootParents() || []).map((name) => {
 									return (
 										<A
-											class="xy flex-grow rounded transition px-1.5 font-medium border-2 text-fg2 border-mg1 hover:text-fg1 hover:border-mg2"
+											class="xy flex-grow rounded transition px-1.5 font-medium border text-fg2 border-mg2 hover:text-fg1 hover:border-fg1"
 											href={`/?q=[${encodeURIComponent(name)}]`}
 											onClick={onTagClick}
 										>
@@ -114,7 +113,7 @@ export default function Home() {
 								// if (name.startsWith('YouTube@') || name.startsWith('Twitter@')) return null;
 								return (
 									<A
-										class="xy flex-grow rounded transition px-1.5 font-medium border-2 text-fg2 border-mg1 hover:text-fg1 hover:border-mg2"
+										class="xy flex-grow rounded transition px-1.5 font-medium border text-fg2 border-mg2 hover:text-fg1 hover:border-fg1"
 										href={`/?q=[${encodeURIComponent(name)}]`}
 										onClick={onTagClick}
 									>
@@ -178,3 +177,38 @@ export default function Home() {
 		</div>
 	);
 }
+
+type onClickType = JSX.EventHandlerUnion<
+	HTMLAnchorElement,
+	MouseEvent,
+	JSX.EventHandler<HTMLAnchorElement, MouseEvent>
+>;
+
+const RecTagLink = (props: {
+	recTag: () => RecursiveTag;
+	isRoot?: boolean;
+	onClick: onClickType;
+}) => {
+	const { recTag, isRoot, onClick } = props;
+	return (
+		<div class="mt-0.5">
+			{isRoot ? (
+				<p class="text-fg1 px-2">{recTag()?.label}</p>
+			) : (
+				<A
+					class="rounded transition px-1.5 font-medium border text-fg2 border-mg2 hover:text-fg1 hover:border-fg1"
+					href={`/?q=[${encodeURIComponent(recTag().label)}]`}
+					onClick={onClick}
+				>
+					{recTag().label}
+				</A>
+			)}
+			<div class="pl-3 border-l-2 border-fg2">
+				{isRoot && !recTag().subRecTags && <p class="text-fg2">No subtags</p>}
+				{recTag().subRecTags?.map((subRecTag) => (
+					<RecTagLink recTag={() => subRecTag} onClick={onClick} />
+				))}
+			</div>
+		</div>
+	);
+};

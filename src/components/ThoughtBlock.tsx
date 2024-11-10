@@ -176,16 +176,16 @@ export default function ThoughtBlock(props: {
 				...unsignedVote,
 				signature: (await getSignature(unsignedVote, unsignedVote.voterId))!,
 			};
-			// sendMessage({
-			// 	from: personaId(),
-			// 	to: buildUrl({ host: useActiveSpace().host, path: 'vote-on-thought' }),
-			// 	replace: lastVote !== undefined,
-			// 	signedVote,
-			// }).catch((err) => {
-			// 	alert(JSON.stringify(err));
-			// 	upvotedSet(lastVote);
-			// 	currentVote = lastVote;
-			// });
+			sendMessage({
+				from: personaId(),
+				to: buildUrl({ host: useActiveSpace().host, path: 'vote-on-thought' }),
+				replace: lastVote !== undefined,
+				signedVote,
+			}).catch((err) => {
+				alert(JSON.stringify(err));
+				upvotedSet(lastVote);
+				currentVote = lastVote;
+			});
 		}, 0 * second);
 	};
 

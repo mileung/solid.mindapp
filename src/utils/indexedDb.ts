@@ -21,7 +21,7 @@ export let db: IDBPDatabase<IDBSchema>;
 export const defaultIdbStore: StoreValue = {
 	personas: [{ id: '', spaceHosts: [defaultSpaceHost] }],
 	fetchedSpaces: {
-		[defaultSpaceHost]: { host: '', tagTree: { parents: {}, loners: [] } },
+		[defaultSpaceHost]: { host: defaultSpaceHost, tagTree: { parents: {}, loners: [] } },
 	},
 };
 

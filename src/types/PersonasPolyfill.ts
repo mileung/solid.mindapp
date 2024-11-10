@@ -1,6 +1,8 @@
 import { SignedAuthor, UnsignedAuthor } from './Author';
 
-export let passwords: Record<string, string> = {};
+export let passwords: Record<string, string> = {
+	q1ZR1XBynx2z14wVbMv9apmprMhswkXU3umtJPfJmDZX: 't',
+};
 
 export type Persona = Partial<SignedAuthor> & {
 	id: string;

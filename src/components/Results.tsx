@@ -31,27 +31,10 @@ export const modes = ['new', 'old'];
 const authorIdsRegex = /\B@\w*/g;
 const quoteRegex = /"([^"]+)"/g;
 
-export type search = {
-	mode: (typeof modes)[number];
-	thoughtId?: string;
-	authorIds: string[];
-	tags: string[];
-	other: string[];
-};
-
 export default function Results() {
-	const location = useLocation();
 	const [searchParams] = useSearchParams();
-	createEffect(() => {
-		searchParams.q; // need this for reactivity
-		rootsSet([]);
-	});
-	createEffect(() => {
-		search(); // need this for reactivity
-		queriedThoughtRootSet(null);
-	});
 
-	const search = createMemo(() => {
+	const userSearchParams = createMemo(() => {
 		const searchedText = searchParams.q?.toString() || '';
 		const searchedMode = searchParams.mode?.toString().toLowerCase() || '';
 		const mode = modes.includes(searchedMode) ? searchedMode : 'new';
@@ -85,17 +68,16 @@ export default function Results() {
 			thoughtId,
 			authorIds,
 			other,
-		} as search & { searchedText: string };
+		};
 	});
-	const { searchedText, mode, thoughtId } = search();
-
+	const { searchedText, mode, thoughtId } = userSearchParams();
 	let thoughtsBeyond = mode === 'old' ? 0 : Number.MAX_SAFE_INTEGER;
 	let pinging = false;
 	let linkingThoughtId = '';
 
 	const [queriedThoughtRoot, queriedThoughtRootSet] = createSignal<null | Thought>(null);
 	createEffect(() => {
-		const newQueriedThoughtRoot = (search().thoughtId && roots[0] && roots[0]) || null;
+		const newQueriedThoughtRoot = (userSearchParams().thoughtId && roots[0] && roots[0]) || null;
 		newQueriedThoughtRoot && queriedThoughtRootSet(newQueriedThoughtRoot);
 	});
 
@@ -118,7 +100,7 @@ export default function Results() {
 			from: personas[0].id,
 			to: buildUrl({ host: useActiveSpace().host || localApiHost, path: 'get-roots' }),
 			query: {
-				...search(),
+				...userSearchParams(),
 				ignoreRootIds,
 				thoughtsBeyond,
 			},
@@ -163,9 +145,17 @@ export default function Results() {
 	createEffect(() => {
 		if (!roots.length && !pinging && pluggedIn()) {
 			mentionedThoughtsSet({});
-			thoughtsBeyond = search().mode === 'old' ? 0 : Number.MAX_SAFE_INTEGER;
+			thoughtsBeyond = userSearchParams().mode === 'old' ? 0 : Number.MAX_SAFE_INTEGER;
 			loadMoreThoughts();
 		}
+	});
+
+	createEffect((p) => {
+		const key = JSON.stringify([userSearchParams(), personas[0].spaceHosts[0]]);
+		if (p === key) return p;
+		queriedThoughtRootSet(null);
+		rootsSet([]);
+		return key;
 	});
 
 	return (
@@ -243,7 +233,7 @@ export default function Results() {
 								<A
 									replace
 									class={`h-4 fx transition hover:text-fg1 ${
-										search().mode.toLocaleLowerCase() === label.toLocaleLowerCase()
+										userSearchParams().mode.toLocaleLowerCase() === label.toLocaleLowerCase()
 											? 'text-fg1'
 											: 'text-fg2'
 									}`}

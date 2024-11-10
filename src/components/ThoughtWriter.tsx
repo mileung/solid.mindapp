@@ -205,7 +205,7 @@ export const ThoughtWriter = (props: {
 				}}
 				name="content"
 				placeholder="New thought"
-				class="rounded text-xl font-thin font-mono px-3 py-2 w-full max-w-full resize-y min-h-36 bg-mg1 transition brightness-[0.97] dark:brightness-75 focus:brightness-100 focus:dark:brightness-100"
+				class="rounded text-xl font-thin font-mono px-3 py-2 w-full max-w-full resize-y min-h-36 bg-bg2 border-mg1 border"
 				onKeyDown={(e) => {
 					if (e.key === 'Escape') {
 						const ok =
@@ -224,7 +224,7 @@ export const ThoughtWriter = (props: {
 					<div
 						tabIndex={-1}
 						ref={tagStuffDiv}
-						class="mb-0.5 fx flex-wrap px-3 py-1 gap-1 rounded-t bg-bg2 text-lg"
+						class="mb-0.5 fx flex-wrap text-lg px-3 py-1 gap-1 rounded-t bg-bg2 border-mg1 border"
 						onClick={() => tagIpt!.focus()}
 					>
 						{addedTags().map((name, i) => (
@@ -271,7 +271,7 @@ export const ThoughtWriter = (props: {
 				)}
 				<input
 					autocomplete="off"
-					class={`px-3 py-1 text-xl bg-mg1 w-full overflow-hidden transition brightness-[0.97] dark:brightness-75 focus:brightness-100 focus:dark:brightness-100 ${
+					class={`px-3 py-1 text-xl w-full overflow-hidden bg-bg2 border-mg1 border ${
 						addedTags().length ? '' : 'rounded-t'
 					} ${suggestTags() ? '' : 'rounded-b'}`}
 					placeholder="Search tags"

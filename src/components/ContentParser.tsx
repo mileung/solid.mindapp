@@ -94,7 +94,7 @@ function parseMd(text: string) {
 					<a
 						target="_blank"
 						href={tag.uri}
-						class="font-medium inline break-all transition text-sky-600 text hover:text-sky-500 dark:text-cyan-400 dark:hover:text-cyan-300"
+						class="font-medium inline break-all transition text-sky-500 text hover:text-sky-600 dark:text-cyan-400 dark:hover:text-cyan-300"
 					>
 						{tag.text}
 					</a>

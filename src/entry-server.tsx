@@ -11,7 +11,7 @@ export default createHandler(() => {
 		<StartServer
 			document={({ assets, children, scripts }) => {
 				return (
-					<html lang="en" class={cookies.theme.endsWith('dark') ? 'dark' : ''}>
+					<html lang="en" class={cookies.theme?.endsWith('dark') ? 'dark' : ''}>
 						<head>
 							<meta charset="utf-8" />
 							<meta name="viewport" content="width=device-width, initial-scale=1" />

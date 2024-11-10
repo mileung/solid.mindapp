@@ -63,7 +63,7 @@ export default function Settings() {
 			) : (
 				<>
 					<p class="text-2xl font-semibold">Root settings</p>
-					<InputPicker
+					{/* <InputPicker
 						title="Working directory path"
 						options={[
 							['Default', 'default'],
@@ -85,7 +85,8 @@ export default function Settings() {
 								return clone(old);
 							});
 						}}
-					/>
+					/> */}
+					<p class="text-xl font-semibold">Current working directory</p>
 					<button
 						// disabled={rootSettings.testWorkingDirectory}
 						class="mt-1 fx gap-1 transition text-fg2 hover:text-fg1"

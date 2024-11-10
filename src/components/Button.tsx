@@ -11,7 +11,7 @@ export function Button(props: {
 	const { on, href, onClick = () => {}, label } = props;
 
 	const className = createMemo(() => {
-		return `block w-fit text-lg font-semibold rounded px-2 border-2 transition hover:text-fg1 ${
+		return `block w-fit text-lg font-semibold rounded px-2 border-2 transition hover:text-fg1 hover:border-fg1 ${
 			on?.() ? 'text-fg1 border-fg1' : 'text-fg2 border-fg2'
 		}`;
 	});

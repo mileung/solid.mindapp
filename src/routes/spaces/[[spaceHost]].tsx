@@ -7,9 +7,8 @@ import { Button } from '~/components/Button';
 import DeterministicVisualId from '~/components/DeterministicVisualId';
 import { LabelVal } from '~/components/LabelVal';
 import TextInput from '~/components/TextInput';
-import { Author } from '~/types/Author';
 import { buildUrl, hostedLocally, localApiHost } from '~/utils/api';
-import { Space } from '~/utils/settings';
+import { clone } from '~/utils/js';
 import { sendMessage } from '~/utils/signing';
 import {
 	fetchedSpaces,
@@ -17,12 +16,9 @@ import {
 	personas,
 	personasSet,
 	retryJoiningHostSet,
-	useTagTree,
 } from '~/utils/state';
 import { formatTimestamp } from '~/utils/time';
 import { createTitle } from '..';
-import { clone } from '~/utils/js';
-import { hashItem } from '~/utils/security';
 
 export default function ManageSpaces() {
 	let hostIpt: undefined | HTMLInputElement;
@@ -105,7 +101,7 @@ export default function ManageSpaces() {
 			</div>
 			<div class="flex-1 space-y-3 p-3">
 				{fetchedSpace() ? (
-					!fetchedSpace()!.fetchedSelf ? (
+					!fetchedSpace()?.fetchedSelf ? (
 						<div class="space-y-2">
 							<p class="text-2xl font-semibold">Unable to join {fetchedSpace()!.host}</p>
 							<Button label="Try again" onClick={() => retryJoiningHostSet(spaceHost())} />
@@ -114,11 +110,15 @@ export default function ManageSpaces() {
 								onClick={() => {
 									navigate(`/spaces/${spaceHost()}`);
 									personasSet((old) => {
-										old[0].spaceHosts.splice(
-											old[0].spaceHosts.findIndex((h) => h === spaceHost()),
-											1,
-										);
+										old[0].spaceHosts = old[0].spaceHosts.filter((sh) => sh !== spaceHost());
 										return clone(old);
+									});
+									// // @ts-ignore
+									// fetchedSpacesSet(spaceHost(), undefined);
+									// console.log('spaceHost():', spaceHost());
+									fetchedSpacesSet((old) => {
+										delete old[spaceHost()];
+										return old;
 									});
 								}}
 							/>
@@ -187,15 +187,11 @@ export default function ManageSpaces() {
 										});
 									}
 									personasSet((old) => {
-										old[0].spaceHosts.splice(
-											old[0].spaceHosts.findIndex((h) => h === spaceHost()),
-											1,
-										);
+										old[0].spaceHosts = old[0].spaceHosts.filter((sh) => sh !== spaceHost());
 										return clone(old);
 									});
 									fetchedSpacesSet((old) => {
-										delete old[spaceHost()];
-										return { ...old };
+										return { ...old, [spaceHost()]: undefined };
 									});
 									navigate('/spaces');
 								}}
