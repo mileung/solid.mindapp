@@ -124,6 +124,7 @@ export default function App() {
 				}));
 			})
 			.catch((err) => {
+				console.log('err:', err);
 				fetchedSpacesSet((old) => ({
 					...old,
 					[host]: { ...old[host], fetchedSelf: null },
