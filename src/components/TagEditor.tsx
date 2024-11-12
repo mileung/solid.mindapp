@@ -2,13 +2,13 @@ import { A } from '@solidjs/router';
 import { matchSorter } from 'match-sorter';
 import { Icon } from 'solid-heroicons';
 import { arrowTopRightOnSquare, link, trash, xMark } from 'solid-heroicons/solid-mini';
-import { createEffect, createMemo, createSignal, JSX } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, JSX } from 'solid-js';
 import { useTagTree } from '~/utils/state';
 import InputAutoWidth from '../components/InputAutoWidth';
 import { getTagRelations, listAllTags, RecursiveTag, sortKeysByNodeCount } from '../utils/tags';
 
 const TagEditor = (props: {
-	disabled?: boolean;
+	disabled?: () => boolean;
 	subTaggingLineage: () => string[];
 	recTag: () => RecursiveTag;
 	parentTag?: string;
@@ -18,7 +18,7 @@ const TagEditor = (props: {
 	onKeyDown?: JSX.DOMAttributes<HTMLInputElement>['onKeyDown'];
 }) => {
 	const {
-		disabled,
+		disabled = () => false,
 		subTaggingLineage,
 		recTag,
 		parentTag,
@@ -99,7 +99,7 @@ const TagEditor = (props: {
 		<div>
 			<div class="fx">
 				<InputAutoWidth
-					disabled={disabled}
+					disabled={disabled()}
 					ref={(r) => (editingIpt = r)}
 					value={recTag().label} // TODO: so just use value instead of defaultValue?
 					placeholder="Edit tag"
@@ -255,16 +255,19 @@ const TagEditor = (props: {
 						)}
 					</>
 				)}
-				{recTag().subRecTags?.map((subRecTag) => (
-					<TagEditor
-						subTaggingLineage={subTaggingLineage}
-						parentTag={recTag().label}
-						recTag={() => subRecTag}
-						onRename={onRename}
-						onSubtag={onSubtag}
-						onRemove={onRemove}
-					/>
-				))}
+				<For each={recTag().subRecTags}>
+					{(subRecTag) => (
+						<TagEditor
+							disabled={disabled}
+							subTaggingLineage={subTaggingLineage}
+							parentTag={recTag().label}
+							recTag={() => subRecTag}
+							onRename={onRename}
+							onSubtag={onSubtag}
+							onRemove={onRemove}
+						/>
+					)}
+				</For>
 			</div>
 		</div>
 	);

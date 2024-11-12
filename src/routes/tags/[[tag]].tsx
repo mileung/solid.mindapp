@@ -91,17 +91,14 @@ export default function Tags() {
 	};
 	const debouncedReplaceTag = debounce((tag?: string) => replaceTag(tag), 100);
 
-	const refreshTagTree = () => {
+	const refreshTagTree = async () => {
 		if (disableTagEdits()) return alert('Editing tags disabled');
 		tagIndexSet(null);
-		ping<TagTree>(makeUrl('get-tag-tree'))
-			.then((data) => {
-				fetchedSpacesSet((old) => {
-					old[personas[0].spaceHosts[0]].tagTree = data;
-					return clone(old);
-				});
-			})
-			.catch((err) => alert(err));
+		const tagTree = await ping<TagTree>(makeUrl('get-tag-tree'));
+		fetchedSpacesSet((old) => {
+			old[''] = { host: '', tagTree };
+			return clone(old);
+		});
 	};
 
 	const addRootTag = (newTag: string, ctrlKey: boolean, altKey: boolean) => {
@@ -409,7 +406,7 @@ export default function Tags() {
 								))}
 						</div>
 						<TagEditor
-							disabled={disableTagEdits()}
+							disabled={disableTagEdits}
 							subTaggingLineage={subTaggingLineage}
 							_ref={rootTagIpt}
 							// @ts-ignore

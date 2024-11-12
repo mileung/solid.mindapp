@@ -69,8 +69,14 @@ export default function ThoughtBlockHeader(props: {
 					input={fetchedSpaces[thought().spaceHost || ''] || thought().spaceHost}
 					class="rounded-sm overflow-hidden h-3 w-3 mr-1"
 				/>
-				<p class="whitespace-nowrap truncate">
-					{thought().spaceHost ? fetchedSpaces[thought().spaceHost!]?.name || 'No name' : 'Local'}
+				<p
+					class={`whitespace-nowrap truncate ${
+						fetchedSpaces[thought().spaceHost || ''] ? '' : 'italic'
+					}`}
+				>
+					{thought().spaceHost
+						? fetchedSpaces[thought().spaceHost || '']?.name || thought().spaceHost
+						: 'Local'}
 				</p>
 			</a>
 			{/* <button
@@ -103,22 +109,6 @@ export default function ThoughtBlockHeader(props: {
 					<Icon path={cubeTransparent} class="h-4 w-4" />
 				)}
 			</button>
-			{/* <button
-				class="h-6 px-1 hover:text-fg1 transition"
-				onClick={() => {
-					savedFileThoughtIdsSet({ ...savedFileThoughtIds, [thoughtId()]: !filedSaved });
-					ping(
-						makeUrl('write-local-file'),
-						post({ thought })
-					);
-				}}
-			>
-				{filedSaved ? (
-					<DocumentCheckIcon class="h-4 w-4" />
-				) : (
-					<ArrowDownTrayIcon class="h-4 w-4 text-" />
-				)}
-			</button> */}
 		</div>
 	);
 }

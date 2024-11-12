@@ -130,7 +130,7 @@ export const ThoughtWriter = (props: {
 							authorId: personas[0].id || undefined,
 							spaceHost: useActiveSpace().host || undefined,
 					  }),
-			} as Omit<Thought, 'children' | 'filedSaved'>,
+			} as Omit<Thought, 'children'>,
 		};
 
 		if (!message.thought.tags?.length) delete message.thought.tags;
@@ -155,24 +155,15 @@ export const ThoughtWriter = (props: {
 			.catch((err) => alert(err));
 
 		if (hostedLocally) {
-			ping(
+			await ping(
 				buildUrl({ host: localApiHost, path: 'save-thought' }),
 				post({ thought: message.thought }),
-			)
-				.then((res) => {
-					// console.log('res:', res);
-					if (!useActiveSpace().host) {
-						ping<TagTree>(makeUrl('get-tag-tree'))
-							.then((data) => {
-								fetchedSpacesSet((old) => {
-									old[personas[0].spaceHosts[0]].tagTree = data;
-									return clone(old);
-								});
-							})
-							.catch((err) => alert(err));
-					}
-				})
-				.catch((err) => alert(err));
+			);
+			const tagTree = await ping<TagTree>(makeUrl('get-tag-tree'));
+			fetchedSpacesSet((old) => {
+				old[''] = { host: '', tagTree };
+				return clone(old);
+			});
 		}
 	};
 

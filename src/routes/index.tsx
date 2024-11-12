@@ -97,14 +97,7 @@ export default function Home() {
 								})}
 							</div>
 							<div class="mt-1.5">
-								{rootTag() && (
-									<RecTagLink
-										isRoot
-										// @ts-ignore // TODO: what's an elegant way to fix this type?
-										recTag={rootTag}
-										onClick={onTagClick}
-									/>
-								)}
+								<RecTagLink isRoot recTag={rootTag} onClick={onTagClick} />
 							</div>
 						</div>
 					) : (
@@ -185,27 +178,28 @@ type onClickType = JSX.EventHandlerUnion<
 >;
 
 const RecTagLink = (props: {
-	recTag: () => RecursiveTag;
+	recTag: () => RecursiveTag | null;
 	isRoot?: boolean;
 	onClick: onClickType;
 }) => {
 	const { recTag, isRoot, onClick } = props;
-	return (
+
+	return !recTag() ? null : (
 		<div class="mt-0.5">
 			{isRoot ? (
-				<p class="text-fg1 px-2">{recTag()?.label}</p>
+				<p class="text-fg1 px-2">{recTag()!.label}</p>
 			) : (
 				<A
 					class="rounded transition px-1.5 font-medium border text-fg2 border-mg2 hover:text-fg1 hover:border-fg1"
-					href={`/?q=[${encodeURIComponent(recTag().label)}]`}
+					href={`/?q=[${encodeURIComponent(recTag()!.label)}]`}
 					onClick={onClick}
 				>
-					{recTag().label}
+					{recTag()!.label}
 				</A>
 			)}
 			<div class="pl-3 border-l-2 border-fg2">
-				{isRoot && !recTag().subRecTags && <p class="text-fg2">No subtags</p>}
-				{recTag().subRecTags?.map((subRecTag) => (
+				{isRoot && !recTag()!.subRecTags && <p class="text-fg2">No subtags</p>}
+				{recTag()!.subRecTags?.map((subRecTag) => (
 					<RecTagLink recTag={() => subRecTag} onClick={onClick} />
 				))}
 			</div>

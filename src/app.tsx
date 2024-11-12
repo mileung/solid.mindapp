@@ -9,7 +9,7 @@ import '~/utils/theme';
 import { setThemeMode } from '~/utils/theme';
 import Header from './components/Header';
 import { Author } from './types/Author';
-import { buildUrl, hostedLocally, makeUrl, ping } from './utils/api';
+import { buildUrl, hostedLocally, makeUrl, ping, post } from './utils/api';
 import { getCookie } from './utils/cookies';
 import { clone } from './utils/js';
 import { hashItem } from './utils/security';
@@ -72,6 +72,15 @@ export default function App() {
 		// console.log('newStore:', newStore);
 		updateIdbStore(newStore);
 	});
+
+	// createEffect((p) => {
+	// 	const str = JSON.stringify({ p });
+	// 	if (p === str) return p;
+	// 	if (hostedLocally) {
+	// 		ping(makeUrl('update-personas'), post({ personas })).catch((err) => console.error(err));
+	// 	}
+	// 	return str;
+	// });
 
 	createEffect((prev) => {
 		if (!idbLoaded()) return;

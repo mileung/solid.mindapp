@@ -1,7 +1,7 @@
 import { A, useLocation, useSearchParams } from '@solidjs/router';
 import { Icon } from 'solid-heroicons';
 import { barsArrowDown, barsArrowUp } from 'solid-heroicons/solid-mini';
-import { createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, onCleanup } from 'solid-js';
 import ThoughtBlock from '~/components/ThoughtBlock';
 import { ThoughtWriter } from '~/components/ThoughtWriter';
 import {
@@ -20,6 +20,7 @@ import { bracketRegex, getAllSubTags, getTags } from '../utils/tags';
 import { sendMessage } from '~/utils/signing';
 import { SignedAuthor } from '~/types/Author';
 import { buildUrl, hostedLocally, localApiHost, ping, post } from '~/utils/api';
+import { clone } from '~/utils/js';
 
 // const authorIdRegex = /^@[A-HJ-NP-Za-km-z1-9]{9,}$/;
 const authorIdRegex = /^@\w*$/;
@@ -33,22 +34,26 @@ const quoteRegex = /"([^"]+)"/g;
 
 export default function Results() {
 	const [searchParams] = useSearchParams();
+	const searchedText = createMemo(() => searchParams.q?.toString() || '');
+	const mode = createMemo(() => {
+		const searchedMode = searchParams.mode?.toString().toLowerCase() || '';
+		return modes.includes(searchedMode) ? searchedMode : 'new';
+	});
 
 	const userSearchParams = createMemo(() => {
-		const searchedText = searchParams.q?.toString() || '';
-		const searchedMode = searchParams.mode?.toString().toLowerCase() || '';
-		const mode = modes.includes(searchedMode) ? searchedMode : 'new';
-		const searchedTags = getTags(searchedText);
+		const searchedTags = getTags(searchedText());
 		const allTags: Set<string> = new Set(searchedTags);
 		searchedTags.forEach((tag) => {
 			const arr = getAllSubTags(useTagTree(), tag);
 			arr.forEach((tag) => allTags.add(tag));
 		});
-		let searchedTextNoTagsOrAuthors = searchedText
+		let searchedTextNoTagsOrAuthors = searchedText()
 			.replace(bracketRegex, ' ')
 			.replace(authorIdsRegex, ' ');
-		const thoughtId = isThoughtId(searchedText) ? searchedText : undefined;
-		const authorIds = searchedText.match(authorIdsRegex)?.map((a) => a.slice(1));
+		const thoughtId = isThoughtId(searchedText()) ? searchedText() : undefined;
+		const authorIds = searchedText()
+			.match(authorIdsRegex)
+			?.map((a) => a.slice(1));
 		const quotes = (searchedTextNoTagsOrAuthors.match(quoteRegex) || []).map((match) =>
 			match.slice(1, -1),
 		);
@@ -62,16 +67,16 @@ export default function Results() {
 		].filter((str) => str !== thoughtId);
 
 		return {
-			searchedText,
-			mode,
+			searchedText: searchedText(),
+			mode: mode(),
 			tags: [...allTags],
 			thoughtId,
 			authorIds,
 			other,
 		};
 	});
-	const { searchedText, mode, thoughtId } = userSearchParams();
-	let thoughtsBeyond = mode === 'old' ? 0 : Number.MAX_SAFE_INTEGER;
+	const { thoughtId } = userSearchParams();
+	let thoughtsBeyond = mode() === 'old' ? 0 : Number.MAX_SAFE_INTEGER;
 	let pinging = false;
 	let linkingThoughtId = '';
 
@@ -145,7 +150,7 @@ export default function Results() {
 	createEffect(() => {
 		if (!roots.length && !pinging && pluggedIn()) {
 			mentionedThoughtsSet({});
-			thoughtsBeyond = userSearchParams().mode === 'old' ? 0 : Number.MAX_SAFE_INTEGER;
+			thoughtsBeyond = mode() === 'old' ? 0 : Number.MAX_SAFE_INTEGER;
 			loadMoreThoughts();
 		}
 	});
@@ -169,14 +174,13 @@ export default function Results() {
 						roots={roots}
 						rootsIndices={[0]}
 						onRootsChange={(newRoots) => {
+							newRoots = clone(newRoots);
 							if (
 								!newRoots[0] ||
 								getThoughtId(newRoots[0]) !== getThoughtId(queriedThoughtRoot()!)
 							) {
 								queriedThoughtRootSet(null);
 							} else {
-								console.log('test');
-								queriedThoughtRootSet(null); // idk y this is needed
 								queriedThoughtRootSet(newRoots[0]);
 							}
 							rootsSet(newRoots);
@@ -227,8 +231,10 @@ export default function Results() {
 								[barsArrowUp, 'Old'],
 							] as const
 						).map(([iconPath, label], i) => {
-							const to = `${searchedText}${i ? `/${label.toLowerCase()}` : ''}`;
-
+							const params: Record<string, string> = {};
+							if (searchedText) params.q = searchedText();
+							if (i) params.mode = label.toLowerCase();
+							const href = '/?' + new URLSearchParams(params).toString();
 							return (
 								<A
 									replace
@@ -237,11 +243,11 @@ export default function Results() {
 											? 'text-fg1'
 											: 'text-fg2'
 									}`}
-									href={to}
+									href={href}
 									// onClick={(e) => !e.metaKey && !e.shiftKey && rootsSet([])}
 								>
 									<Icon path={iconPath} class="h-5 w-5" />
-									<p class="ml-1 font-medium">{label}</p>
+									<p class="ml-1 font-semibold">{label}</p>
 								</A>
 							);
 						})}
@@ -252,19 +258,24 @@ export default function Results() {
 						</div>
 					) : (
 						<div class=" space-y-1.5">
-							{roots.slice(thoughtId ? 1 : 0).map((thought, i) => {
-								if (!thought) return;
-								const thoughtId = getThoughtId(thought);
-								return (
-									<ThoughtBlock
-										initiallyLinking={linkingThoughtId === thoughtId}
-										thought={() => thought}
-										roots={roots}
-										rootsIndices={[i + (queriedThoughtRoot() ? 1 : 0)]}
-										onRootsChange={(newRoots) => rootsSet(newRoots)}
-									/>
-								);
-							})}
+							<For each={roots.slice(thoughtId ? 1 : 0)}>
+								{(thought, i) => {
+									if (!thought) return;
+									const thoughtId = getThoughtId(thought);
+									return (
+										<ThoughtBlock
+											initiallyLinking={linkingThoughtId === thoughtId}
+											thought={() => thought}
+											roots={roots}
+											rootsIndices={[i() + (queriedThoughtRoot() ? 1 : 0)]}
+											onRootsChange={(newRoots) => {
+												console.log('test????');
+												rootsSet(clone(newRoots));
+											}}
+										/>
+									);
+								}}
+							</For>
 							{thoughtId && roots[0] === null && (
 								<div class="xy h-40">
 									<p class="text-2xl">Thought not found</p>

@@ -12,7 +12,7 @@ import {
 	trash,
 	xMark,
 } from 'solid-heroicons/solid-mini';
-import { createMemo, createSignal, JSX } from 'solid-js';
+import { createEffect, createMemo, createSignal, For, JSX } from 'solid-js';
 import { buildUrl, hostedLocally, makeUrl, ping, post } from '~/utils/api';
 import { getThoughtId, Thought } from '~/utils/ClientThought';
 import { clone, isStringifiedRecord, makeReadable } from '~/utils/js';
@@ -113,12 +113,11 @@ export default function ThoughtBlock(props: {
 			const lastVote = currentVote;
 			currentVote = newVote;
 			if (newVote === undefined) {
-				return;
-				// return sendMessage({
-				// 	from: personaId(),
-				// 	to: buildUrl({ host: useActiveSpace().host, path: 'delete-vote' }),
-				// 	thoughtId,
-				// });
+				return sendMessage({
+					from: personaId(),
+					to: buildUrl({ host: useActiveSpace().host, path: 'delete-vote' }),
+					thoughtId: thoughtId(),
+				});
 			}
 			const [createDate, authorId, spaceHost] = thoughtId().split('_', 3);
 			const unsignedVote: UnsignedVote = {
@@ -197,7 +196,7 @@ export default function ThoughtBlock(props: {
 				}`}
 			>
 				<button
-					class="w-5 z-10 fy transition rounded text-fg2 hover:text-fg1 hover:bg-mg2"
+					class="w-5 fy transition rounded text-fg2 hover:text-fg1 hover:bg-mg2"
 					onClick={() => openSet(!open())}
 				>
 					<div class="my-0.5 h-5 xy">
@@ -262,9 +261,9 @@ export default function ThoughtBlock(props: {
 								)}
 							</>
 						)}
-						<div class="z-50 mt-2 flex gap-2 text-fg2 max-w-full justify-between">
+						<div class="z-0 mt-2 flex gap-2 text-fg2 max-w-full justify-between">
 							{useActiveSpace().host && (
-								<div class="z-20 fx h-4 relative">
+								<div class="fx h-4 relative">
 									<button
 										class={`xy -ml-2 h-7 w-7 transition hover:text-orange-500 ${
 											upvoted() ? 'text-orange-500' : ''
@@ -298,7 +297,7 @@ export default function ThoughtBlock(props: {
 											tabIndex={0}
 											onBlur={onShowVotersBlur}
 											onKeyDown={(e) => e.key === 'Escape' && showVotersSet(false)}
-											class="z-50 absolute top-4 mt-0.5 left-0 w-48 rounded bg-mg1 shadow"
+											class="z-10 absolute top-4 mt-0.5 left-0 w-48 rounded bg-mg1 shadow"
 										>
 											<div class="fx justify-between pl-1">
 												<p class="font-semibold">Voters</p>
@@ -425,20 +424,21 @@ export default function ThoughtBlock(props: {
 						)}
 						{thought().children && (
 							<div class="z-0 mt-1 space-y-1">
-								{thought().children!.map(
-									(childThought, i) =>
+								<For each={thought().children}>
+									{(childThought, i) =>
 										childThought && (
 											<ThoughtBlock
 												initiallyLinking={linkingThoughtId === getThoughtId(childThought)}
 												highlightedId={highlightedId}
 												roots={roots}
 												onRootsChange={onRootsChange}
-												rootsIndices={[...rootsIndices, i]}
+												rootsIndices={[...rootsIndices, i()]}
 												thought={() => childThought}
 												depth={depth + 1}
 											/>
-										),
-								)}
+										)
+									}
+								</For>
 							</div>
 						)}
 					</div>

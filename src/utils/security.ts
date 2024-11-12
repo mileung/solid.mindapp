@@ -19,7 +19,6 @@ export function encrypt(text: string, password = ''): string {
 	});
 	const encryptedBuffer = Buffer.from(encrypted.ciphertext.toString(), 'hex');
 	const ivBuffer = Buffer.from(iv.toString(), 'hex');
-
 	return `${base58.encode(ivBuffer)}:${base58.encode(encryptedBuffer)}`;
 }
 

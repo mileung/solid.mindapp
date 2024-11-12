@@ -2,9 +2,12 @@ import { A } from '@solidjs/router';
 import { Icon } from 'solid-heroicons';
 import { chevronDoubleDown, chevronDoubleUp } from 'solid-heroicons/solid-mini';
 import { createEffect, createSignal } from 'solid-js';
-import { useActiveSpace, authors } from '~/utils/state';
+import { useActiveSpace, authors, personas, authorsSet } from '~/utils/state';
 import { Vote } from '../types/Vote';
 import DeterministicVisualId from './DeterministicVisualId';
+import { sendMessage } from '~/utils/signing';
+import { SignedAuthor } from '~/types/Author';
+import { buildUrl, localApiHost } from '~/utils/api';
 
 export default function Voters(props: { thoughtId: string }) {
 	const { thoughtId } = props;
@@ -17,28 +20,27 @@ export default function Voters(props: { thoughtId: string }) {
 		if (lastVote === null || !useActiveSpace()) return;
 		pinging = true;
 		const votesBeyond = lastVote?.voteDate || (oldToNew() ? 0 : Number.MAX_SAFE_INTEGER);
-		// sendMessage<{
-		// 	authors: Record<string, SignedAuthor>;
-		// 	votes: Vote[];
-		// }>({
-		// 	from: personas[0].id,
-		// 	to: buildUrl({ host: useActiveSpace().host || localApiHost, path: 'get-votes' }),
-		// 	thoughtId,
-		// 	oldToNew,
-		// 	votesBeyond,
-		// })
-		// 	.then((data) => {
-		// 		// console.log('data:', data);
-		// 		authorsSet((old) => ({ ...old, ...data.authors }));
-		// 		votesSet((old) => {
-		// 			const votesPerLoad = 333;
-		// 			old.push(...data.votes);
-		// 			data.votes.length < votesPerLoad && old.push(null);
-		// 			return [...old];
-		// 		});
-		// 	})
-		// 	.catch((err) => console.error(err))
-		// 	.finally(() => (pinging = false));
+		sendMessage<{
+			authors: Record<string, SignedAuthor>;
+			votes: Vote[];
+		}>({
+			from: personas[0].id,
+			to: buildUrl({ host: useActiveSpace().host || localApiHost, path: 'get-votes' }),
+			thoughtId,
+			oldToNew: oldToNew(),
+			votesBeyond,
+		})
+			.then((data) => {
+				authorsSet((old) => ({ ...old, ...data.authors }));
+				votesSet((old) => {
+					const votesPerLoad = 333;
+					old.push(...data.votes);
+					data.votes.length < votesPerLoad && old.push(null);
+					return [...old];
+				});
+			})
+			.catch((err) => console.error(err))
+			.finally(() => (pinging = false));
 	};
 
 	const handleScroll = () => {
@@ -48,9 +50,9 @@ export default function Voters(props: { thoughtId: string }) {
 		const documentHeight = document.body.offsetHeight;
 
 		// console.log('scrollPosition:', scrollPosition);
-		// if (votes.slice(-1)[0] !== null && scrollPosition >= documentHeight - 100) {
-		// 	if (votes.length !== votesLengthLastLoad) {
-		// 		votesLengthLastLoad = votes.length;
+		// if (votes().slice(-1)[0] !== null && scrollPosition >= documentHeight - 100) {
+		// 	if (votes().length !== votesLengthLastLoad) {
+		// 		votesLengthLastLoad = votes().length;
 		// 		loadMoreVotes();
 		// 	}
 		// }
