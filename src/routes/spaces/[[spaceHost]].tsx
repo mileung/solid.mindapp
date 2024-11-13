@@ -11,14 +11,19 @@ import { buildUrl, hostedLocally, localApiHost } from '~/utils/api';
 import { clone } from '~/utils/js';
 import { sendMessage } from '~/utils/signing';
 import {
+	drawerOpen,
+	drawerOpenSet,
 	fetchedSpaces,
 	fetchedSpacesSet,
 	personas,
 	personasSet,
 	retryJoiningHostSet,
+	useActiveSpace,
 } from '~/utils/state';
 import { formatTimestamp } from '~/utils/time';
 import { createTitle } from '..';
+import Drawer from '~/components/Drawer';
+import { check } from 'solid-heroicons/solid-mini';
 
 export default function ManageSpaces() {
 	let hostIpt: undefined | HTMLInputElement;
@@ -50,11 +55,10 @@ export default function ManageSpaces() {
 		setTimeout(() => navigate(`/spaces/${newSpaceHost}`), 0);
 	};
 
-	return (
-		<div class="flex">
-			<Title>Spaces | Mindapp</Title>
-			<div class="flex-1 relative min-w-40 max-w-56">
-				<div class="sticky top-12 h-full p-3 flex flex-col max-h-[calc(100vh-3rem)] overflow-scroll">
+	const SpaceList = () => {
+		return (
+			<div class="flex-1 relative w-52">
+				<div class="sticky top-12 h-full sm:p-3 flex flex-col max-h-[calc(100vh-3rem)] overflow-scroll">
 					<div class="overflow-scroll border-b border-mg1 mb-1">
 						{personas[0].spaceHosts
 							.filter((h) => !!h && h !== localApiHost)
@@ -64,8 +68,9 @@ export default function ManageSpaces() {
 									<A
 										href={`/spaces/${host}`}
 										class={`rounded h-14 fx transition hover:bg-mg1 pl-2 py-1 ${
-											host === spaceHost() ? 'bg-mg1' : 'bg-bg1'
+											host === spaceHost() ? 'bg-mg1' : ''
 										}`}
+										onClick={() => drawerOpenSet(false)}
 									>
 										<DeterministicVisualId
 											input={fetchedSpaces[host] || { host }}
@@ -83,6 +88,11 @@ export default function ManageSpaces() {
 											</p>
 											<p class="font-mono text-fg2 leading-5 truncate">{host}</p>
 										</div>
+										<div class="ml-auto mr-1 xy w-5">
+											{useActiveSpace().host === personas[0].spaceHosts[0] && (
+												<Icon path={check} class="h-5 w-5" />
+											)}
+										</div>
 									</A>
 								);
 							})}
@@ -90,6 +100,7 @@ export default function ManageSpaces() {
 					<A
 						href={'/spaces'}
 						class={`rounded h-10 fx transition hover:bg-mg1 px-2 py-1 ${!spaceHost() && 'bg-mg1'}`}
+						onClick={() => drawerOpenSet(false)}
 					>
 						<div class="h-6 w-6 xy">
 							{/* <div class="h-4 w-4 rounded-sm bg-fg1" /> */}
@@ -98,6 +109,25 @@ export default function ManageSpaces() {
 						<p class="ml-1.5 text-lg font-semibold">Join space</p>
 					</A>
 				</div>
+			</div>
+		);
+	};
+
+	return (
+		<div class="flex">
+			<Title>Spaces | Mindapp</Title>
+			<Drawer
+				width="w-52"
+				hideWidth="sm:hidden"
+				isOpen={drawerOpen}
+				onClose={() => drawerOpenSet(false)}
+			>
+				<div>
+					<SpaceList />
+				</div>
+			</Drawer>
+			<div class="hidden sm:block">
+				<SpaceList />
 			</div>
 			<div class="flex-1 space-y-3 p-3">
 				{fetchedSpace() ? (

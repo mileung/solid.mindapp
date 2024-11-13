@@ -1,15 +1,21 @@
 import { A } from '@solidjs/router';
-import { Thought, getThoughtId } from '../utils/ClientThought';
+import { Icon } from 'solid-heroicons';
+import {
+	arrowTopRightOnSquare,
+	cube,
+	cubeTransparent,
+	fingerPrint,
+} from 'solid-heroicons/solid-mini';
+import { createMemo, Setter } from 'solid-js';
+import { authors, fetchedSpaces } from '~/utils/state';
+import { localClientHost } from '../utils/api';
+import { getThoughtId, Thought } from '../utils/ClientThought';
 import { copyToClipboardAsync } from '../utils/js';
 import { formatTimestamp } from '../utils/time';
 import DeterministicVisualId from './DeterministicVisualId';
-import { localClientHost } from '../utils/api';
-import { createEffect, createMemo, Setter } from 'solid-js';
-import { authors, fetchedSpaces } from '~/utils/state';
-import { Icon } from 'solid-heroicons';
-import { cube, cubeTransparent, fingerPrint } from 'solid-heroicons/solid-mini';
 
 export default function ThoughtBlockHeader(props: {
+	onLink?: () => void;
 	thought: () => Thought;
 	parsed: () => boolean;
 	parsedSet: Setter<boolean>;
@@ -79,6 +85,11 @@ export default function ThoughtBlockHeader(props: {
 						: 'Local'}
 				</p>
 			</a>
+			{props.onLink && (
+				<button class="flex-1 min-w-4 h-6 fx hover:text-fg1 transition" onClick={props.onLink}>
+					<Icon path={arrowTopRightOnSquare} class="absolute rotate-90 w-5" />
+				</button>
+			)}
 			{/* <button
 				class="h-6 px-1 hover:text-fg1 transition"
 				// TODO: onClick={() => playTextToSpeechAudio()}

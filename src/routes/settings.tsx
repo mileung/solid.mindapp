@@ -11,7 +11,7 @@ import { RootSettings, WorkingDirectory } from '../utils/settings';
 import { InputPicker } from '~/components/InputPicker';
 import TextInput from '~/components/TextInput';
 import { Icon } from 'solid-heroicons';
-import { arrowTopRightOnSquare } from 'solid-heroicons/solid';
+import { arrowTopRightOnSquare } from 'solid-heroicons/solid-mini';
 import { setThemeMode } from '~/utils/theme';
 import { clone } from '~/utils/js';
 

@@ -7,7 +7,7 @@ import { createEffect, createMemo, createSignal, JSX } from 'solid-js';
 import Drawer from '~/components/Drawer';
 import Results from '~/components/Results';
 import { hostedLocally } from '~/utils/api';
-import { rootSettings, tagMapOpen, tagMapOpenSet, useTagTree } from '~/utils/state';
+import { rootSettings, drawerOpen, drawerOpenSet, useTagTree } from '~/utils/state';
 import {
 	getParentsMap,
 	getTagRelations,
@@ -33,7 +33,7 @@ export default function Home() {
 	createTitle(q);
 	const searchedTags = createMemo(() => getTags(q()));
 	let searchIpt: undefined | HTMLInputElement;
-	let tagMapDiv: undefined | HTMLDivElement;
+	let tagMapDiv1: undefined | HTMLDivElement;
 	let tagMapDiv2: undefined | HTMLDivElement;
 
 	const allTags = createMemo(() => listAllTags(getTagRelations(useTagTree())));
@@ -56,15 +56,15 @@ export default function Home() {
 	const onTagClick = (e: MouseEvent) => {
 		if (!e.metaKey && !e.shiftKey) {
 			tagFilterSet('');
-			tagMapOpenSet(false);
-			tagMapDiv!.scrollTop = 0;
+			drawerOpenSet(false);
+			tagMapDiv1!.scrollTop = 0;
 			tagMapDiv2!.scrollTop = 0;
 		}
 	};
 
 	const TagMap = () => {
 		return (
-			<div class="">
+			<div class="max-h-full overflow-y-scroll">
 				<div class="sticky bg-bg2 top-0 flex">
 					<input
 						ref={searchIpt}
@@ -79,7 +79,7 @@ export default function Home() {
 				</div>
 				<div class="flex-1 p-1">
 					{focusedTag() && !tagFilter() ? (
-						<div class="">
+						<>
 							<div class="fx flex-wrap gap-1 bg-bg2">
 								{useTagTree() && !rootParents() && (
 									<p class="xy flex-grow text-fg2">No parent tags</p>
@@ -99,7 +99,7 @@ export default function Home() {
 							<div class="mt-1.5">
 								<RecTagLink isRoot recTag={rootTag} onClick={onTagClick} />
 							</div>
-						</div>
+						</>
 					) : (
 						<div class="fx flex-wrap gap-1 bg-bg2">
 							{filteredTags().map((name) => {
@@ -140,24 +140,9 @@ export default function Home() {
 			<div class="w-full md:w-[calc(100%-30%)]">
 				<Results />
 			</div>
-			<Drawer isOpen={tagMapOpen} onClose={() => tagMapOpenSet(false)}>
-				<div ref={tagMapDiv} class="overflow-y-scroll overflow-x-hidden h-screen md:hidden">
-					<div class="fx h-12">
-						<button
-							class="xy mr-2 h-full w-10 text-fg2 transition hover:text-fg1"
-							onClick={() => tagMapOpenSet(!tagMapOpen())}
-						>
-							<Icon path={bars_3} class="h-7 w-7" />
-						</button>
-						<a href="/" class="fx shrink-0" onClick={() => tagMapOpenSet(!tagMapOpen())}>
-							<img
-								src={'/mindapp-logo.svg'}
-								alt="logo"
-								class={`h-6 ${hostedLocally && rootSettings.testWorkingDirectory && 'grayscale'}`}
-							/>
-							<p class="ml-2 text-xl font-black">Mindapp</p>
-						</a>
-					</div>
+			<div class="md:hidden"></div>
+			<Drawer isOpen={drawerOpen} onClose={() => drawerOpenSet(false)}>
+				<div ref={tagMapDiv1} class="h-[calc(100vh-3rem)] md:block">
 					<TagMap />
 				</div>
 			</Drawer>
@@ -198,8 +183,8 @@ const RecTagLink = (props: {
 				</A>
 			)}
 			<div class="pl-3 border-l-2 border-fg2">
-				{isRoot && !recTag()!.subRecTags && <p class="text-fg2">No subtags</p>}
-				{recTag()!.subRecTags?.map((subRecTag) => (
+				{isRoot && !recTag()?.subRecTags && <p class="text-fg2">No subtags</p>}
+				{recTag()?.subRecTags?.map((subRecTag) => (
 					<RecTagLink recTag={() => subRecTag} onClick={onClick} />
 				))}
 			</div>

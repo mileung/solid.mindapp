@@ -5,12 +5,12 @@ import { decrypt } from '~/utils/security';
 import { validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { hostedLocally, makeUrl, ping, post } from '~/utils/api';
-import { passwords } from '~/types/PersonasPolyfill';
 import { useNavigate, useParams } from '@solidjs/router';
-import { personas, personasSet } from '~/utils/state';
+import { passwordsSet, personas, personasSet } from '~/utils/state';
 import { createEffect, createMemo } from 'solid-js';
-import { lockClosed } from 'solid-heroicons/solid';
+import { lockClosed } from 'solid-heroicons/solid-mini';
 import { Icon } from 'solid-heroicons';
+import { Title } from '@solidjs/meta';
 
 export default function UnlockPersona({ manage }: { manage?: boolean }) {
 	const { personaId } = useParams();
@@ -18,38 +18,28 @@ export default function UnlockPersona({ manage }: { manage?: boolean }) {
 	let passwordIpt: undefined | HTMLInputElement;
 
 	const selectedPersona = createMemo(() => {
-		return !personas ? null : personas.find((p) => p.id === personaId) || null;
+		return personas.find((p) => p.id === personaId) || null;
 	});
 
 	const unlockPersona = async () => {
 		if (!selectedPersona()) return;
-		let locked = true;
-		if (hostedLocally) {
-			locked = (
-				await ping<{ locked: boolean }>(
-					makeUrl('unlock-selectedPersona()'),
-					post({ personaId, password: passwordIpt?.value }),
-				)
-			).locked;
-		} else {
-			const decryptedMnemonic = decrypt(selectedPersona()?.encryptedMnemonic!, passwordIpt!.value);
-			if (validateMnemonic(decryptedMnemonic || '', wordlist)) {
-				locked = false;
-			}
-		}
-		if (locked) {
+		const password = passwordIpt!.value;
+		const decryptedMnemonic = decrypt(selectedPersona()?.encryptedMnemonic!, password);
+
+		if (!validateMnemonic(decryptedMnemonic || '', wordlist)) {
+			alert('Incorrect password');
 			passwordIpt?.focus();
 			// passwordIpt?.error = 'Incorrect password';
 			return;
 		}
+		passwordsSet((old) => ({ ...old, [personaId]: password }));
 		personasSet((old) => {
-			// passwords[selectedPersona()()?.id] = passwordIpt?.value;
 			old.splice(
 				old.findIndex((p) => p.id === selectedPersona()!.id),
 				1,
 			);
 			!manage && navigate('/');
-			return [{ ...selectedPersona()!, locked }, ...old];
+			return [{ ...selectedPersona()! }, ...old];
 		});
 	};
 
@@ -57,6 +47,7 @@ export default function UnlockPersona({ manage }: { manage?: boolean }) {
 
 	return (
 		<div class={`space-y-3 ${!manage && 'p-3'}`}>
+			<Title>Unlock | Mindapp</Title>
 			{personas && !selectedPersona() ? (
 				<>
 					<p class="font-bold text-2xl">Persona not found</p>
@@ -64,14 +55,18 @@ export default function UnlockPersona({ manage }: { manage?: boolean }) {
 				</>
 			) : (
 				<>
-					<div class="fx gap-3">
+					<div class="flex gap-3">
 						<DeterministicVisualId
-							input={personaId}
+							input={selectedPersona()!.id}
 							class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-full"
 						/>
 						<div>
 							<div class="fx gap-1">
-								<p class="font-bold text-2xl">{selectedPersona()?.name || 'No name'}</p>
+								<p
+									class={`leading-7 font-bold text-2xl ${!selectedPersona()!.name && 'text-fg2'} `}
+								>
+									{selectedPersona()!.name || 'No name'}
+								</p>
 								<Icon path={lockClosed} class="h-6 w-6" />
 							</div>
 							<p class="text-lg text-fg2 font-semibold break-all">{personaId}</p>
@@ -79,9 +74,10 @@ export default function UnlockPersona({ manage }: { manage?: boolean }) {
 					</div>
 					<TextInput
 						password
-						// autoFocus={!manage}
-						autofocus
-						// _ref={passwordIpt}
+						ref={(t) => {
+							passwordIpt = t;
+							setTimeout(() => t.focus(), 0);
+						}}
 						label="Password"
 						onSubmit={() => unlockPersona()}
 					/>

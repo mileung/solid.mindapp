@@ -1,17 +1,16 @@
-import { hostedLocally, makeUrl, ping, post } from './api';
-import { createKeyPair, decrypt, signItem } from './security';
 import { validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
-import { personas } from './state';
-import { passwords } from '~/types/PersonasPolyfill';
 import { SignedAuthor, UnsignedAuthor } from '~/types/Author';
+import { ping, post } from './api';
+import { createKeyPair, decrypt, signItem } from './security';
+import { passwords, personas } from './state';
 
 type Item = string | Record<string, any> | any[];
 export async function getSignature(item: Item, personaId?: string) {
 	if (!personaId) return;
 	const persona = personas.find((p) => p.id === personaId);
 	if (!persona) throw new Error('Persona not found');
-	if (persona.locked) throw new Error('Persona locked');
+	if (passwords[persona.id] === undefined) throw new Error('Persona locked');
 	const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
 	if (!validateMnemonic(decryptedMnemonic || '', wordlist)) {
 		throw new Error('Something went wrong');
@@ -47,7 +46,7 @@ export function getMnemonic(personaId: string) {
 	if (!personaId) return '';
 	const persona = personas.find((p) => p.id === personaId);
 	if (!persona) throw new Error('Persona not found');
-	if (persona.locked) throw new Error('Persona locked');
+	if (passwords[persona.id] === undefined) throw new Error('Persona locked');
 	const decryptedMnemonic = decrypt(persona.encryptedMnemonic!, passwords[persona.id]);
 	if (!validateMnemonic(decryptedMnemonic || '', wordlist)) {
 		throw new Error('Something went wrong');

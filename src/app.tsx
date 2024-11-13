@@ -12,7 +12,7 @@ import { Author } from './types/Author';
 import { buildUrl, hostedLocally, makeUrl, ping, post } from './utils/api';
 import { getCookie } from './utils/cookies';
 import { clone } from './utils/js';
-import { hashItem } from './utils/security';
+import { decrypt, hashItem } from './utils/security';
 import { RootSettings, Space, WorkingDirectory } from './utils/settings';
 import { sendMessage } from './utils/signing';
 import {
@@ -20,6 +20,8 @@ import {
 	authorsSet,
 	fetchedSpaces,
 	fetchedSpacesSet,
+	passwords,
+	passwordsSet,
 	personas,
 	personasSet,
 	retryJoiningHost,
@@ -33,15 +35,16 @@ import {
 } from './utils/state';
 import { TagTree } from './utils/tags';
 import { getIdbStore, updateIdbStore } from './utils/indexedDb';
+import { validateMnemonic } from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english';
+import { useAnon } from './types/PersonasPolyfill';
 
 export default function App() {
 	const [idbLoaded, idbLoadedSet] = createSignal(false);
 	onMount(async () => {
 		const initialIdbStore = await getIdbStore();
 		personasSet(initialIdbStore.personas);
-		// console.log('initialIdbStore.personas:', initialIdbStore.personas);
 		fetchedSpacesSet(initialIdbStore.fetchedSpaces);
-		idbLoadedSet(true);
 
 		const cookieTheme = getCookie('theme');
 		themeModeSet((cookieTheme?.startsWith('system') ? 'system' : cookieTheme) || 'system');
@@ -52,6 +55,22 @@ export default function App() {
 				?.matchMedia('(prefers-color-scheme: dark)')
 				?.addEventListener('change', () => setThemeMode(themeMode()));
 		}
+
+		personas.forEach((persona) => {
+			if (persona.encryptedMnemonic) {
+				const decryptedMnemonic = decrypt(persona.encryptedMnemonic, '');
+				const valid = decryptedMnemonic && validateMnemonic(decryptedMnemonic, wordlist);
+				if (valid) {
+					passwordsSet((old) => ({ ...old, [persona.id]: '' }));
+				}
+			}
+		});
+
+		if (passwords[personas[0].id] === undefined) {
+			useAnon();
+		}
+		idbLoadedSet(true);
+
 		if (hostedLocally) {
 			const tagTree = await ping<TagTree>(makeUrl('get-tag-tree'));
 			fetchedSpacesSet((old) => {
@@ -66,6 +85,7 @@ export default function App() {
 			workingDirectorySet(workingDirectory);
 		}
 	});
+
 	createEffect(() => {
 		// TODO: this is not efficient but the clones are needed to trigger this function idk y
 		const newStore = clone({ personas, fetchedSpaces });
@@ -104,6 +124,7 @@ export default function App() {
 	});
 
 	createEffect((lastHost) => {
+		if (!idbLoaded()) return;
 		let { host } = useActiveSpace();
 		if (!host || (lastHost === host && !retryJoiningHost())) return host;
 		if (retryJoiningHost()) host = retryJoiningHost();

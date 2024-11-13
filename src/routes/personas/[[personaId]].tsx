@@ -1,11 +1,10 @@
 import { generateMnemonic, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
-import { wallet } from '@vite/vitejs';
 import { Button } from '~/components/Button';
 import DeterministicVisualId from '~/components/DeterministicVisualId';
 import { LabelVal } from '~/components/LabelVal';
 import TextInput from '~/components/TextInput';
-import { Persona, getUnsignedAuthor, passwords } from '~/types/PersonasPolyfill';
+import { Persona, addPersona, getUnsignedAuthor, useAnon } from '~/types/PersonasPolyfill';
 import { hostedLocally, makeUrl, ping, post } from '~/utils/api';
 import { clone, copyToClipboardAsync, shortenString } from '~/utils/js';
 import { createKeyPair, decrypt, encrypt, signItem } from '~/utils/security';
@@ -13,10 +12,19 @@ import { defaultSpaceHost } from '~/utils/api';
 import UnlockPersona from '../unlock/[personaId]';
 import { A, useNavigate, useParams } from '@solidjs/router';
 import { createEffect, createMemo, createSignal } from 'solid-js';
-import { personas, personasSet } from '~/utils/state';
-import { check, documentDuplicate, lockClosed, user } from 'solid-heroicons/solid';
+import {
+	drawerOpen,
+	drawerOpenSet,
+	passwords,
+	passwordsSet,
+	personas,
+	personasSet,
+} from '~/utils/state';
+import { check, documentDuplicate, lockClosed, user } from 'solid-heroicons/solid-mini';
 import { Icon } from 'solid-heroicons';
 import { getSignedAuthor } from '~/utils/signing';
+import Drawer from '~/components/Drawer';
+import { Title } from '@solidjs/meta';
 
 export default function Personas() {
 	let nameIpt: undefined | HTMLInputElement;
@@ -37,47 +45,17 @@ export default function Personas() {
 	);
 	const frozen = createMemo(() => selectedPersona()?.frozen);
 
-	// createEffect((prev) => {
-	// 	const selectedPersonaStr = JSON.stringify(selectedPersona());
-	// 	if (prev === selectedPersonaStr) return prev;
-	// 	secretsSet('');
-	// 	if (selectedPersona() && nameIpt && passwordIpt) {
-	// 		nameIpt.value = selectedPersona()!.name || '';
-	// 		passwordIpt.value = '';
-	// 	}
-	// 	return selectedPersonaStr;
-	// });
-
-	const addPersona = async () => {
-		let newPersona: Persona;
-		const mnemonic = mnemonicIpt!.value || generateMnemonic(wordlist, 256);
-		if (!validateMnemonic(mnemonic, wordlist)) {
-			// return (mnemonicIpt!.error = 'Invalid mnemonic');
-			return alert('Invalid mnemonic');
+	const addPersonaHere = async () => {
+		try {
+			const newPersona = addPersona({
+				mnemonic: mnemonicIpt!.value,
+				name: nameIpt!.value.trim(),
+				password: passwordIpt!.value,
+			});
+			navigate(`/personas/${newPersona.id}`);
+		} catch (error) {
+			alert(error);
 		}
-		const kp = createKeyPair(mnemonic);
-		passwords[kp.publicKey] = passwordIpt!.value;
-		const unsignedAuthor = getUnsignedAuthor({
-			id: kp.publicKey,
-			name: nameIpt!.value.trim(),
-			// The next line causes Module "buffer" has been externalized for browser compatibility. Cannot access "buffer.Buffer" in client code. See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details.
-			walletAddress: wallet.deriveAddress({ mnemonics: mnemonic, index: 0 }).address,
-			// TODO: rewrite the essential Vite wallet functions
-			// Address Derivation: https://docs.vite.org/vuilder-docs/vite-basics/cryptography/address-derivation.html
-			// HD Wallet: https://docs.vite.org/vite-docs/reference/hdwallet.html
-		});
-		const signedAuthor = {
-			...unsignedAuthor,
-			signature: signItem(unsignedAuthor, kp.privateKey),
-		};
-		newPersona = {
-			...signedAuthor,
-			encryptedMnemonic: encrypt(mnemonic, passwordIpt!.value),
-			spaceHosts: [defaultSpaceHost],
-		};
-
-		personasSet((old) => clone([newPersona, ...old]));
-		navigate(`/personas/${newPersona.id}`);
 	};
 
 	createEffect((p) => {
@@ -89,76 +67,95 @@ export default function Personas() {
 		return personaIndex();
 	});
 
+	const PersonaList = () => {
+		return (
+			<div class="flex-1 relative w-52">
+				<div class="sticky top-12 h-full sm:p-3 flex flex-col max-h-[calc(100vh-3rem)] overflow-scroll">
+					<div class="overflow-scroll border-b border-mg1 mb-1">
+						{personas
+							.filter((p) => !!p.id)
+							.sort((a, b) =>
+								a.name && b.name
+									? a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+									: a.name
+									? -1
+									: b.name
+									? 1
+									: a.id!.toLowerCase().localeCompare(b.id!.toLowerCase()),
+							)
+							.map((persona) => {
+								return (
+									<A
+										href={`/personas/${persona!.id}`}
+										class={`rounded h-14 fx transition hover:bg-mg1 pl-2 py-1 ${
+											persona!.id === personaId() ? 'bg-mg1' : ''
+										}`}
+										onClick={() => drawerOpenSet(false)}
+									>
+										<DeterministicVisualId
+											input={persona!.id}
+											class="h-6 w-6 overflow-hidden rounded-full"
+										/>
+										<div class="flex-1 mx-2 truncate">
+											<p
+												class={`text-lg font-semibold leading-5 ${
+													!persona!.name && 'text-fg2'
+												} truncate`}
+											>
+												{!persona!.id ? 'Anon' : persona!.name || 'No name'}
+											</p>
+											<p class="font-mono text-fg2 leading-5">{shortenString(persona!.id!)}</p>
+										</div>
+										<div class="ml-auto mr-1 xy w-5">
+											{persona!.id === personas[0].id ? (
+												<Icon path={check} class="h-5 w-5" />
+											) : (
+												passwords[persona.id] === undefined && (
+													<Icon path={lockClosed} class="h-4 w-4 text-fg2" />
+												)
+											)}
+										</div>
+									</A>
+								);
+							})}
+					</div>
+					<A
+						href={'/personas'}
+						class={`rounded h-10 fx transition hover:bg-mg1 px-2 py-1 ${!personaId() && 'bg-mg1'}`}
+						onClick={() => drawerOpenSet(false)}
+					>
+						<div class="h-6 w-6 xy">
+							<Icon path={user} class="h-6 w-6" />
+						</div>
+						<p class="ml-1.5 text-lg font-semibold">Add persona</p>
+					</A>
+				</div>
+			</div>
+		);
+	};
+
 	return (
 		personas && (
 			<div class="flex">
-				<div class="flex-1 relative min-w-40 max-w-56">
-					<div class="sticky top-12 h-full p-3 flex flex-col max-h-[calc(100vh-3rem)] overflow-scroll">
-						<div class="overflow-scroll border-b border-mg1 mb-1">
-							{personas
-								.filter((p) => !!p.id)
-								.sort((a, b) =>
-									a.name && b.name
-										? a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-										: a.name
-										? -1
-										: b.name
-										? 1
-										: a.id!.toLowerCase().localeCompare(b.id!.toLowerCase()),
-								)
-								.map((persona) => {
-									return (
-										<A
-											href={`/personas/${persona!.id}`}
-											class={`rounded h-14 fx transition hover:bg-mg1 pl-2 py-1 ${
-												persona!.id === personaId() ? 'bg-mg1' : 'bg-bg1'
-											}`}
-										>
-											<DeterministicVisualId
-												input={persona!.id}
-												class="h-6 w-6 overflow-hidden rounded-full"
-											/>
-											<div class="flex-1 mx-2 truncate">
-												<p
-													class={`text-lg font-semibold leading-5 ${
-														!persona!.name && 'text-fg2'
-													} truncate`}
-												>
-													{!persona!.id ? 'Anon' : persona!.name || 'No name'}
-												</p>
-												<p class="font-mono text-fg2 leading-5">{shortenString(persona!.id!)}</p>
-											</div>
-											<div class="ml-auto mr-1 xy w-5">
-												{persona!.id === personas[0].id ? (
-													<Icon path={check} class="h-5 w-5" />
-												) : (
-													persona!.locked && <Icon path={lockClosed} class="h-4 w-4 text-fg2" />
-												)}
-											</div>
-										</A>
-									);
-								})}
-						</div>
-						<A
-							href={'/personas'}
-							class={`rounded h-10 fx transition hover:bg-mg1 px-2 py-1 ${
-								!personaId() && 'bg-mg1'
-							}`}
-						>
-							<div class="h-6 w-6 xy">
-								<Icon path={user} class="h-6 w-6" />
-							</div>
-							<p class="ml-1.5 text-lg font-semibold">Add persona</p>
-						</A>
+				<Title>Personas | Mindapp</Title>
+				<Drawer
+					width="w-52"
+					hideWidth="sm:hidden"
+					isOpen={drawerOpen}
+					onClose={() => drawerOpenSet(false)}
+				>
+					<div>
+						<PersonaList />
 					</div>
+				</Drawer>
+				<div class="hidden sm:block">
+					<PersonaList />
 				</div>
 				<div class="flex-1 space-y-3 p-3">
 					{selectedPersona() ? (
 						<>
-							{selectedPersona()!.locked ? (
-								<>
-									<UnlockPersona manage />
-								</>
+							{selectedPersona()!.id && passwords[selectedPersona()!.id] === undefined ? (
+								<UnlockPersona manage />
 							) : (
 								<>
 									<div class="flex gap-3">
@@ -203,6 +200,13 @@ export default function Personas() {
 									)}
 									<p class="text-2xl font-semibold mb-1">Security</p>
 									<Button
+										label="Lock persona"
+										onClick={() => {
+											passwordsSet((old) => ({ ...old, [personaId()]: undefined }));
+											useAnon();
+										}}
+									/>
+									<Button
 										label={changingPw() ? 'Keep password' : 'Change password'}
 										onClick={() => {
 											changingPwSet(!changingPw());
@@ -223,7 +227,7 @@ export default function Personas() {
 													);
 													if (decryptedMnemonic === null) return alert('Incorrect password');
 													if (validateMnemonic(decryptedMnemonic, wordlist)) {
-														passwords[personaId()] = newPassword;
+														passwordsSet((old) => ({ ...old, [personaId()]: newPassword }));
 													}
 													personasSet((old) => {
 														old[personaIndex()].encryptedMnemonic = encrypt(
@@ -299,7 +303,7 @@ export default function Personas() {
 											navigate('/personas');
 										}}
 									/>
-									{!frozen && (
+									{!frozen() && (
 										<Button
 											label="Mark as frozen"
 											onClick={async () => {
@@ -351,21 +355,21 @@ export default function Personas() {
 								ref={(t) => (nameIpt = t)}
 								label="Name"
 								placeholder="No name"
-								onSubmit={addPersona}
+								onSubmit={addPersonaHere}
 							/>
 							<TextInput
 								password
 								ref={(t) => (mnemonicIpt = t)}
 								label="Mnemonic"
-								onSubmit={addPersona}
+								onSubmit={addPersonaHere}
 							/>
 							<TextInput
 								password
 								ref={(t) => (passwordIpt = t)}
 								label="Password"
-								onSubmit={addPersona}
+								onSubmit={addPersonaHere}
 							/>
-							<Button label="Add persona" onClick={addPersona} />
+							<Button label="Add persona" onClick={addPersonaHere} />
 						</>
 					)}
 				</div>

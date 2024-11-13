@@ -115,7 +115,7 @@ export default function TextInput(props: {
 					autofocus={autofocus}
 					autocomplete="off"
 					class="leading-3 min-w-52 border-b-2 text-2xl font-medium transition border-mg2 hover:border-fg2 focus:border-fg2"
-					type={password && !passwordVisible ? 'password' : 'text'}
+					type={password && !passwordVisible() ? 'password' : 'text'}
 					// @ts-ignore
 					defaultValue={props.defaultValue}
 					onFocus={() => focusedSet(true)}
@@ -133,9 +133,7 @@ export default function TextInput(props: {
 						keyUp = false;
 					}}
 					onInput={({ target: { value } }) => {
-						if (disabled) {
-							return;
-						}
+						if (disabled) return;
 						error() && errorSet('');
 						if (numeric && value) {
 							value = value.replace(/[^0123456789\.]/g, '');
@@ -159,7 +157,7 @@ export default function TextInput(props: {
 							passwordVisibleSet(!passwordVisible());
 							setTimeout(() => {
 								// move cursor to end
-								ipt!.setSelectionRange(internalValue.length, internalValue.length);
+								ipt!.setSelectionRange(internalValue().length, internalValue().length);
 							}, 0);
 						}}
 					>

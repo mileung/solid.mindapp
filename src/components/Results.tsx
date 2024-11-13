@@ -1,6 +1,6 @@
 import { A, useLocation, useSearchParams } from '@solidjs/router';
 import { Icon } from 'solid-heroicons';
-import { barsArrowDown, barsArrowUp } from 'solid-heroicons/solid-mini';
+import { barsArrowDown, barsArrowUp, chatBubbleLeftRight } from 'solid-heroicons/solid-mini';
 import { createEffect, createMemo, createSignal, For, onCleanup } from 'solid-js';
 import ThoughtBlock from '~/components/ThoughtBlock';
 import { ThoughtWriter } from '~/components/ThoughtWriter';
@@ -225,14 +225,16 @@ export default function Results() {
 						{(
 							[
 								// [fire, 'Hot'],
-								// [chatBubbleLeftRight, 'Replies'],
 								// [trophy, 'Top'],
 								[barsArrowDown, 'New'],
 								[barsArrowUp, 'Old'],
+
+								// This could just be a query getting post that await a user's interaction
+								// [chatBubbleLeftRight, 'Replies'],
 							] as const
 						).map(([iconPath, label], i) => {
 							const params: Record<string, string> = {};
-							if (searchedText) params.q = searchedText();
+							if (searchedText()) params.q = searchedText();
 							if (i) params.mode = label.toLowerCase();
 							const href = '/?' + new URLSearchParams(params).toString();
 							return (

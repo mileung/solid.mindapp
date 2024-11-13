@@ -1,4 +1,4 @@
-import { useNavigate, useSearchParams } from '@solidjs/router';
+import { useLocation, useNavigate, useSearchParams } from '@solidjs/router';
 import { matchSorter } from 'match-sorter';
 import { Icon } from 'solid-heroicons';
 import {
@@ -11,9 +11,9 @@ import {
 	square_2Stack,
 	tag,
 	userGroup,
-} from 'solid-heroicons/solid';
+} from 'solid-heroicons/solid-mini';
 import { createEffect, createMemo, createSignal } from 'solid-js';
-import { Persona } from '../types/PersonasPolyfill';
+import { Persona, useAnon } from '../types/PersonasPolyfill';
 import { hostedLocally, localApiHost, makeUrl, ping } from '../utils/api';
 import { clone, shortenString } from '../utils/js';
 import { useKeyPress } from '../utils/keyboard';
@@ -24,9 +24,11 @@ import {
 	personas,
 	personasSet,
 	rootSettings,
-	tagMapOpen,
-	tagMapOpenSet,
+	drawerOpen,
+	drawerOpenSet,
 	useTagTree,
+	passwords,
+	passwordsSet,
 } from '../utils/state';
 import {
 	bracketRegex,
@@ -80,8 +82,12 @@ export default function Header() {
 		searchedText().trim().replace(bracketRegex, '').replace(/\s\s+/g, ' ').trim(),
 	);
 
-	const allTags = createMemo(() => listAllTags(getTagRelations(useTagTree())));
-	const defaultTags = createMemo(() => sortKeysByNodeCount(useTagTree()));
+	const allTags = createMemo(() =>
+		!suggestTags() ? [] : listAllTags(getTagRelations(useTagTree())),
+	);
+	const defaultTags = createMemo(() =>
+		!suggestTags() ? [] : sortKeysByNodeCount(useTagTree()).reverse(),
+	);
 	const suggestedTags = createMemo(() => {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(addedTags());
@@ -155,8 +161,11 @@ export default function Header() {
 					onMouseMove={() => setGlobalCssVariable('header-opacity', '1')}
 				>
 					<button
-						class="md:hidden xy -ml-2 mr-2 h-full w-10 text-fg2 transition hover:text-fg1"
-						onClick={() => tagMapOpenSet(!tagMapOpen())}
+						class={`${
+							// I feel like this is bad ux?
+							useLocation().pathname === '/' ? 'md:hidden' : 'sm:hidden'
+						} xy -ml-2 mr-2 h-full w-10 text-fg2 transition hover:text-fg1`}
+						onClick={() => drawerOpenSet(!drawerOpen())}
 					>
 						<Icon path={bars_3} class="h-7 w-7" />
 					</button>
@@ -315,7 +324,12 @@ export default function Header() {
 													onMouseDown={(e) => e.preventDefault()}
 													class="w-44 pl-2 h-11 fx"
 													onClick={() => {
-														if (switchingPersonas() && thing.id && thing.locked) {
+														if (
+															switchingPersonas() &&
+															thing.id &&
+															passwords[thing.id] === undefined
+														) {
+															switchingPersonasSet(false);
 															return navigate(`/unlock/${thingKey}`);
 														}
 														personasSet((old) => {
@@ -389,8 +403,8 @@ export default function Header() {
 														{showCheck ? (
 															<Icon path={check} class="h-5 w-5" />
 														) : (
-															thing.locked &&
-															switchingPersonas() && (
+															switchingPersonas() &&
+															passwords[thing.id] === undefined && (
 																<Icon path={lockClosed} class="h-4 w-4 text-fg2" />
 															)
 														)}
@@ -429,25 +443,13 @@ export default function Header() {
 										class="w-full border-t border-mg2 h-10 fx transition hover:bg-mg2 px-2 py-1"
 										onMouseDown={(e) => e.preventDefault()}
 										onClick={() => {
-											if (hostedLocally) {
-												ping(makeUrl('lock-all-personas')).catch((err) => alert(err));
-											}
-											personasSet((old) => {
-												old.forEach((p) => {
-													if (!!p.id) p.locked = true;
-												});
-												old.splice(
-													0,
-													0,
-													old.splice(
-														old.findIndex((p) => !p.id),
-														1,
-													)[0],
-												);
-												switchingSpacesSet(false);
-												switchingPersonasSet(false);
-												return clone(old);
+											useAnon();
+											personas.forEach((persona) => {
+												passwordsSet((old) => ({ ...old, [persona.id]: undefined }));
 											});
+
+											switchingSpacesSet(false);
+											switchingPersonasSet(false);
 											navigate('/');
 										}}
 									>

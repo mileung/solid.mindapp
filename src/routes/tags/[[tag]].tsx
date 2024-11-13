@@ -2,7 +2,7 @@ import { A, useLocation, useNavigate, useParams } from '@solidjs/router';
 import { matchSorter } from 'match-sorter';
 import { Icon } from 'solid-heroicons';
 import { chevronRight, plus } from 'solid-heroicons/solid-mini';
-import { createMemo, createSignal } from 'solid-js';
+import { createEffect, createMemo, createSignal, onMount } from 'solid-js';
 import InputAutoWidth from '~/components/InputAutoWidth';
 import TagEditor from '~/components/TagEditor';
 import { hostedLocally, makeUrl, ping, post } from '~/utils/api';
@@ -11,6 +11,7 @@ import { useKeyPress } from '~/utils/keyboard';
 import { debounce } from '~/utils/performance';
 import { fetchedSpacesSet, personas, useActiveSpace, useTagTree } from '~/utils/state';
 import {
+	RecursiveTag,
 	TagTree,
 	getParentsMap,
 	getTagRelations,
@@ -41,7 +42,6 @@ export default function Tags() {
 
 	const [tagFilter, tagFilterSet] = createSignal('');
 
-	const disableTagEdits = createMemo(() => !!useActiveSpace().host);
 	const decodedTag = createMemo(() => decodeURIComponent(useParams().tag || ''));
 	const trimmedTagFilter = createMemo(() => tagFilter().trim());
 	const tagRelations = createMemo(() => getTagRelations(useTagTree()));
@@ -91,8 +91,14 @@ export default function Tags() {
 	};
 	const debouncedReplaceTag = debounce((tag?: string) => replaceTag(tag), 100);
 
+	createEffect(() => {
+		if (!decodedTag() && filteredTags()[0]) {
+			replaceTag(filteredTags()[0]);
+		}
+	});
+
 	const refreshTagTree = async () => {
-		if (disableTagEdits()) return alert('Editing tags disabled');
+		if (!hostedLocally) return alert('Run Mindapp locally to Edit tags');
 		tagIndexSet(null);
 		const tagTree = await ping<TagTree>(makeUrl('get-tag-tree'));
 		fetchedSpacesSet((old) => {
@@ -102,7 +108,7 @@ export default function Tags() {
 	};
 
 	const addRootTag = (newTag: string, ctrlKey: boolean, altKey: boolean) => {
-		if (disableTagEdits()) return alert('Editing tags disabled');
+		if (!hostedLocally) return alert('Run Mindapp locally to Edit tags');
 		altKey && tagFilterSet('');
 		subTaggingLineageSet(ctrlKey ? [newTag] : []);
 		ping(makeUrl('add-tag'), post({ tag: newTag }))
@@ -111,7 +117,7 @@ export default function Tags() {
 	};
 
 	const addParentTag = (e: KeyboardEvent | MouseEvent, parentTag: string) => {
-		if (disableTagEdits()) return alert('Editing tags disabled');
+		if (!hostedLocally) return alert('Run Mindapp locally to Edit tags');
 		if (!rootTag()?.label || !parentTag) return;
 		!e.altKey && addingParentSet(false);
 		parentTagFilterSet('');
@@ -123,7 +129,7 @@ export default function Tags() {
 	};
 
 	const addSubtag = (tag: string, parentTag: string, newSubTaggingLineage: string[]) => {
-		if (disableTagEdits()) return alert('Editing tags disabled');
+		if (!hostedLocally) return alert('Run Mindapp locally to Edit tags');
 		subTaggingLineageSet(newSubTaggingLineage);
 		!newSubTaggingLineage && searchIpt?.focus();
 		return ping(makeUrl('add-tag'), post({ tag, parentTag }))
@@ -132,7 +138,7 @@ export default function Tags() {
 	};
 
 	const renameTag = async (oldTag: string, newTag: string, newSubTaggingLineage: string[]) => {
-		if (disableTagEdits()) return alert('Editing tags disabled');
+		if (!hostedLocally) return alert('Run Mindapp locally to Edit tags');
 		replaceTag(newTag);
 		subTaggingLineageSet(newSubTaggingLineage);
 		return (
@@ -144,8 +150,7 @@ export default function Tags() {
 	};
 
 	const removeTag = (tag: string, parentTag?: string) => {
-		if (disableTagEdits()) return alert('Editing tags disabled');
-
+		if (!hostedLocally) return alert('Run Mindapp locally to Edit tags');
 		return ping(makeUrl('remove-tag'), post({ tag, parentTag }))
 			.then(() => refreshTagTree())
 			.then(() => searchIpt?.focus())
@@ -187,8 +192,13 @@ export default function Tags() {
 			<div class="flex-1 relative min-w-80 max-w-[30rem]">
 				<div class="sticky top-12 h-full pt-0.5 flex flex-col max-h-[calc(100vh-3rem)]">
 					<input
-						ref={searchIpt}
-						autofocus
+						ref={(t) => {
+							searchIpt = t;
+							setTimeout(() => t.focus(), 0);
+							// adding autofocus prop gives
+							// Autofocus processing was blocked because a document already has a focused element.
+							// idk y
+						}}
 						placeholder="Search tags"
 						class="w-full px-3 h-8  border-b-2 text-xl font-medium transition border-mg2 hover:border-fg2 focus:border-fg2"
 						value={tagFilter()}
@@ -201,7 +211,7 @@ export default function Tags() {
 							e.key === 'Escape' && searchIpt?.blur();
 							if (e.key === 'Tab' && !e.shiftKey) {
 								e.preventDefault();
-								addParentBtn!.focus();
+								addParentBtn?.focus();
 							}
 							if (e.key === 'Enter') {
 								if (!rootTag()) {
@@ -252,7 +262,7 @@ export default function Tags() {
 										i === filteredTags()!.length - 1 &&
 											tagToAdd() &&
 											addRootTag(tagToAdd(), e.ctrlKey, e.altKey);
-										tagIndex() === i ? rootTagIpt?.focus() : searchIpt?.focus();
+										searchIpt?.focus();
 									}}
 								>
 									<div class="flex-1 text-left text-xl font-medium transition text-fg1 truncate">
@@ -307,7 +317,6 @@ export default function Tags() {
 							{!addingParent() ? (
 								<button
 									ref={addParentBtn}
-									disabled={disableTagEdits()}
 									class="text-lg font-semibold rounded px-2 border-2 transition hover:text-fg1 text-fg2 border-fg2"
 									onClick={() => addingParentSet(true)}
 									onKeyDown={(e) => {
@@ -405,16 +414,17 @@ export default function Tags() {
 									</A>
 								))}
 						</div>
-						<TagEditor
-							disabled={disableTagEdits}
-							subTaggingLineage={subTaggingLineage}
-							_ref={rootTagIpt}
-							// @ts-ignore
-							recTag={rootTag}
-							onSubtag={addSubtag}
-							onRename={renameTag}
-							onRemove={removeTag}
-						/>
+						{rootTag() && (
+							<TagEditor
+								subTaggingLineage={subTaggingLineage}
+								ref={(t) => (rootTagIpt = t)}
+								// @ts-ignore
+								recTag={rootTag}
+								onSubtag={addSubtag}
+								onRename={renameTag}
+								onRemove={removeTag}
+							/>
+						)}
 					</>
 				)}
 			</div>

@@ -8,7 +8,7 @@ import InputAutoWidth from '../components/InputAutoWidth';
 import { getTagRelations, listAllTags, RecursiveTag, sortKeysByNodeCount } from '../utils/tags';
 
 const TagEditor = (props: {
-	disabled?: () => boolean;
+	ref?: (t: HTMLInputElement) => void;
 	subTaggingLineage: () => string[];
 	recTag: () => RecursiveTag;
 	parentTag?: string;
@@ -17,16 +17,7 @@ const TagEditor = (props: {
 	onRemove: (currentTagLabel: string, parentTag?: string) => void;
 	onKeyDown?: JSX.DOMAttributes<HTMLInputElement>['onKeyDown'];
 }) => {
-	const {
-		disabled = () => false,
-		subTaggingLineage,
-		recTag,
-		parentTag,
-		onRename,
-		onSubtag,
-		onRemove,
-		onKeyDown,
-	} = props;
+	const { subTaggingLineage, recTag, parentTag, onRename, onSubtag, onRemove, onKeyDown } = props;
 	const [addingSubtag, addingSubtagSet] = createSignal(
 		JSON.stringify(recTag().lineage) === JSON.stringify(subTaggingLineage),
 	);
@@ -46,8 +37,12 @@ const TagEditor = (props: {
 	let tagSuggestionsRefs: (null | HTMLButtonElement)[] = [];
 
 	const trimmedFilter = createMemo(() => tagFilter().trim());
-	const allTags = createMemo(() => listAllTags(getTagRelations(useTagTree())));
-	const defaultTags = createMemo(() => sortKeysByNodeCount(useTagTree()).reverse());
+	const allTags = createMemo(() =>
+		!suggestTags() ? [] : listAllTags(getTagRelations(useTagTree())),
+	);
+	const defaultTags = createMemo(() =>
+		!suggestTags() ? [] : sortKeysByNodeCount(useTagTree()).reverse(),
+	);
 	const filteredTags = createMemo(() => {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(
@@ -99,8 +94,10 @@ const TagEditor = (props: {
 		<div>
 			<div class="fx">
 				<InputAutoWidth
-					disabled={disabled()}
-					ref={(r) => (editingIpt = r)}
+					ref={(r) => {
+						editingIpt = r;
+						props.ref?.(r);
+					}}
 					value={recTag().label} // TODO: so just use value instead of defaultValue?
 					placeholder="Edit tag"
 					size={1}
@@ -258,7 +255,6 @@ const TagEditor = (props: {
 				<For each={recTag().subRecTags}>
 					{(subRecTag) => (
 						<TagEditor
-							disabled={disabled}
 							subTaggingLineage={subTaggingLineage}
 							parentTag={recTag().label}
 							recTag={() => subRecTag}

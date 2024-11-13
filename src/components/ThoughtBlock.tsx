@@ -204,7 +204,19 @@ export default function ThoughtBlock(props: {
 					</div>
 				</button>
 				<div class="mt-0.5 flex-1 max-w-[calc(100%-1.25rem)]">
-					<ThoughtBlockHeader thought={thought} parsedSet={parsedSet} parsed={parsed} />
+					<ThoughtBlockHeader
+						thought={thought}
+						parsedSet={parsedSet}
+						parsed={parsed}
+						onLink={
+							open()
+								? undefined
+								: () => {
+										openSet(true);
+										linkingSet(true);
+								  }
+						}
+					/>
 					<div class={`z-10 pb-1 pr-1 ${open() ? '' : 'hidden'}`}>
 						{editing() ? (
 							<div class="mt-1">

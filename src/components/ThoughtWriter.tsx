@@ -26,6 +26,7 @@ import {
 	TagTree,
 } from '~/utils/tags';
 import TextareaAutoHeight from './TextareaAutoHeight';
+import { addPersona } from '~/types/PersonasPolyfill';
 
 export const ThoughtWriter = (props: {
 	initialContent?: Thought['content'];
@@ -69,8 +70,12 @@ export const ThoughtWriter = (props: {
 	// TODO: For users hosting mindapp locally, indicate wherever tags are displayed which tags overlap between local and global space tags trees, tags that are specific  to the space, and tags specific to the local space
 
 	const trimmedFilter = createMemo(() => tagFilter().trim());
-	const allTags = createMemo(() => listAllTags(getTagRelations(useTagTree())));
-	const defaultTags = createMemo(() => sortKeysByNodeCount(useTagTree()));
+	const allTags = createMemo(() =>
+		!suggestTags() ? [] : listAllTags(getTagRelations(useTagTree())),
+	);
+	const defaultTags = createMemo(() =>
+		!suggestTags() ? [] : sortKeysByNodeCount(useTagTree()).reverse(),
+	);
 	const suggestedTags = createMemo(() => {
 		if (!suggestTags()) return [];
 		const addedTagsSet = new Set(addedTags());
@@ -86,10 +91,8 @@ export const ThoughtWriter = (props: {
 			? JSON.stringify(JSON.parse(initialStuff), null, 2)
 			: initialStuff;
 	});
-	const makePersonaOnPost = createMemo(
-		// TODO: () => useActiveSpace().host && !personas[0].id,
-		() => false,
-	);
+	const makePersonaOnPost = createMemo(() => useActiveSpace().host && !personas[0].id);
+
 	const addTag = (tagToAdd?: string) => {
 		tagToAdd = tagToAdd || suggestedTags()[tagIndex()] || trimmedFilter();
 		if (!tagToAdd) return;
@@ -102,7 +105,8 @@ export const ThoughtWriter = (props: {
 	const writeThought = async (ctrlKey?: boolean, altKey?: boolean) => {
 		const content = contentTextArea!.value.trim();
 		if (!content) return;
-		jsonString && navigate(pathname, { replace: true });
+		makePersonaOnPost() && addPersona({ initialSpace: useActiveSpace().host });
+		jsonString && navigate(pathname, { replace: true, scroll: false });
 		contentTextArea!.style.height = 'auto';
 		const additionalTag = ((suggestTags() && suggestedTags()[tagIndex()]) || tagFilter()).trim();
 		let [createDate, authorId, spaceHost] = (editId || '').split('_', 3);
@@ -135,7 +139,6 @@ export const ThoughtWriter = (props: {
 
 		if (!message.thought.tags?.length) delete message.thought.tags;
 		message.thought.signature = await getSignature(message.thought, message.thought.authorId);
-
 		await sendMessage<{
 			authors: Record<string, SignedAuthor>;
 			mentionedThoughts: Record<string, Thought>;
