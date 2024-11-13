@@ -39,9 +39,17 @@ import { validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { useAnon } from './types/PersonasPolyfill';
 
+// const mindappChannel = new BroadcastChannel('mindapp_channel');
+
 export default function App() {
 	const [idbLoaded, idbLoadedSet] = createSignal(false);
 	onMount(async () => {
+		// mindappChannel.onmessage = (event) => {
+		// 	if (event.data.type === 'UPDATE_STATE') {
+		// 		// TODO: make it an option to keep personas in sync across tabs?
+		// 	}
+		// };
+
 		const initialIdbStore = await getIdbStore();
 		personasSet(initialIdbStore.personas);
 		fetchedSpacesSet(initialIdbStore.fetchedSpaces);
@@ -65,10 +73,7 @@ export default function App() {
 				}
 			}
 		});
-
-		if (passwords[personas[0].id] === undefined) {
-			useAnon();
-		}
+		passwords[personas[0].id] === undefined && useAnon();
 		idbLoadedSet(true);
 
 		if (hostedLocally) {
@@ -86,18 +91,32 @@ export default function App() {
 		}
 	});
 
-	createEffect(() => {
+	createEffect((p) => {
+		const newStore = clone({ fetchedSpaces, personas });
+		const str = JSON.stringify(newStore);
+		if (!idbLoaded() || p === str) return p;
 		// TODO: this is not efficient but the clones are needed to trigger this function idk y
-		const newStore = clone({ personas, fetchedSpaces });
-		// console.log('newStore:', newStore);
 		updateIdbStore(newStore);
+		return str;
 	});
 
 	// createEffect((p) => {
-	// 	const str = JSON.stringify({ p });
+	// 	const str = JSON.stringify({ fetchedSpaces, personas, passwords });
+	// 	if (!idbLoaded() || p === str) return p;
+	// 	mindappChannel.postMessage({
+	// 		type: 'UPDATE_STATE',
+	// 		value: str,
+	// 	});
+	// 	return str;
+	// });
+
+	// createEffect((p) => {
+	// 	const str = JSON.stringify({ personas, passwords });
 	// 	if (p === str) return p;
 	// 	if (hostedLocally) {
-	// 		ping(makeUrl('update-personas'), post({ personas })).catch((err) => console.error(err));
+	// 		ping(makeUrl('update-personas'), post({ personas, newPasswords: passwords })).catch((err) =>
+	// 			console.error(err),
+	// 		);
 	// 	}
 	// 	return str;
 	// });

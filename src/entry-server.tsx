@@ -16,6 +16,7 @@ export default createHandler(() => {
 							<meta charset="utf-8" />
 							<meta name="viewport" content="width=device-width, initial-scale=1" />
 							<link rel="icon" href="/mindapp-logo.svg" />
+							<link rel="manifest" href="/manifest.json" />
 							{assets}
 						</head>
 						<body>
