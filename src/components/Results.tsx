@@ -271,7 +271,6 @@ export default function Results() {
 											roots={roots}
 											rootsIndices={[i() + (queriedThoughtRoot() ? 1 : 0)]}
 											onRootsChange={(newRoots) => {
-												console.log('test????');
 												rootsSet(clone(newRoots));
 											}}
 										/>

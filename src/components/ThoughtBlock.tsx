@@ -73,11 +73,12 @@ export default function ThoughtBlock(props: {
 		return votes;
 	});
 	const onShowMoreBlur = () => {
-		setTimeout(() => {
-			if (![xBtn, trashBtn, pencilBtn].find((e) => e === document.activeElement)) {
-				moreOptionsOpenSet(false);
-			}
-		}, 0);
+		// TODO: This doesn't work in Safari
+		// setTimeout(() => {
+		// 	if (![xBtn, trashBtn, pencilBtn].find((e) => e === document.activeElement)) {
+		// 		moreOptionsOpenSet(false);
+		// 	}
+		// }, 0);
 	};
 	const onShowVotersBlur = () => {
 		setTimeout(() => {

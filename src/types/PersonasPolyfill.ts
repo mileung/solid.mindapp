@@ -3,7 +3,7 @@ import { SignedAuthor, UnsignedAuthor } from './Author';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { createKeyPair, encrypt, signItem } from '~/utils/security';
 import { defaultSpaceHost } from '~/utils/api';
-import { passwordsSet, personasSet } from '~/utils/state';
+import { passwordsSet, personasSet, retryJoiningHostSet } from '~/utils/state';
 import { clone } from '~/utils/js';
 // import { wallet } from '@vite/vitejs'; // this doesn't work
 import * as vitejs from '@vite/vitejs'; // this
@@ -72,5 +72,6 @@ export const addPersona = ({
 	};
 	passwordsSet((old) => clone({ ...old, [newPersona.id]: password }));
 	personasSet((old) => clone([newPersona, ...old]));
+	retryJoiningHostSet(initialSpace);
 	return newPersona;
 };
